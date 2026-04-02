@@ -1534,10 +1534,7 @@ function fetchLiveSchedule(callback) {
   // Single API call for the full date range
   var url = 'https://statsapi.mlb.com/api/v1/schedule?sportId=1' +
     '&startDate='+startDate+'&endDate='+endDate +
-    '&hydrate=probablePitcher,venue,broadcasts' +
-    '&fields=dates,date,games,gamePk,status,abstractGameState,gameDate,' +
-    'teams,away,home,team,id,abbreviation,name,probablePitcher,fullName,' +
-    'venue,name,broadcasts,name';
+    '&hydrate=probablePitcher,venue,broadcasts';
 
   fetch(url)
     .then(function(r){ return r.json(); })
@@ -1590,6 +1587,8 @@ function fetchLiveSchedule(callback) {
             sp2:      g.teams.home.probablePitcher ? lastName(g.teams.home.probablePitcher.fullName) : 'TBD',
             sp1Full:  g.teams.away.probablePitcher ? g.teams.away.probablePitcher.fullName : 'TBD',
             sp2Full:  g.teams.home.probablePitcher ? g.teams.home.probablePitcher.fullName : 'TBD',
+            sp1Id:    g.teams.away.probablePitcher ? g.teams.away.probablePitcher.id : null,
+            sp2Id:    g.teams.home.probablePitcher ? g.teams.home.probablePitcher.id : null,
             status:   g.status ? g.status.abstractGameState : 'Preview',
             gamePk:   g.gamePk
           };
@@ -1912,6 +1911,141 @@ function processOddsForRLM(oddsData) {
 }
 
 
+
+// ══════════ PHASE 1: LIVE 2026 PITCHER STATS ══════════
+// Fetches real 2026 season stats for all pitchers from MLB Stats API
+// Runs silently on page load — no button, no key required
+// Blends with preseason projections based on starts (sample size)
+
+var pitcherStatsLoaded = false;
+var pitcherStatsError  = false;
+
+// Full-name to last-name aliases — MLB API returns full names
+// We match on last name to find entries in SP{}
+// Handles common disambiguation (two Garcias, etc.)
+var PITCHER_FULL_NAMES = {};  // populated on fetch: "Cole" -> "Gerrit Cole"
+
+function fetchAllPitcherStats(callback) {
+  // Collect pitcher IDs from live schedule (already fetched — no extra call)
+  var pitcherIds = {};  // id -> fullName
+  Object.keys(liveScheduleByDate).forEach(function(day) {
+    (liveScheduleByDate[day] || []).forEach(function(game) {
+      if (game.sp1Id) pitcherIds[game.sp1Id] = game.sp1Full || game.sp1;
+      if (game.sp2Id) pitcherIds[game.sp2Id] = game.sp2Full || game.sp2;
+    });
+  });
+
+  var ids = Object.keys(pitcherIds).filter(function(id){ return id && id !== 'null'; });
+
+  if (!ids.length) {
+    console.log('[Diamond Oracle] No pitcher IDs from schedule — skipping stat fetch');
+    pitcherStatsLoaded = true;
+    if (callback) callback();
+    return;
+  }
+
+  // Single API call: fetch stats for all scheduled starters by player ID
+  // This endpoint is CORS-safe and is the same pattern as schedule fetch
+  var url = 'https://statsapi.mlb.com/api/v1/people' +
+    '?personIds=' + ids.join(',') +
+    '&hydrate=stats(group=pitching,type=season,season=2026,gameType=R)' +
+    '&fields=people,id,fullName,stats,splits,stat,era,whip,strikeOuts,' +
+    'baseOnBalls,inningsPitched,homeRuns,groundOuts,airOuts,gamesStarted,battersFaced';
+
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.people) { pitcherStatsLoaded = true; if (callback) callback(); return; }
+
+      var loaded = 0;
+      data.people.forEach(function(person) {
+        var fullName = person.fullName || '';
+        if (!fullName) return;
+
+        // Get last name (our SP dict key)
+        var parts    = fullName.trim().split(' ');
+        var lastName = parts[parts.length - 1];
+        if (['Jr.','Sr.','II','III','IV'].indexOf(lastName) >= 0 && parts.length > 2)
+          lastName = parts[parts.length - 2];
+
+        // Find 2026 season stats
+        var seasonStats = null;
+        if (person.stats) {
+          person.stats.forEach(function(statGroup) {
+            if (statGroup.splits && statGroup.splits.length) {
+              // Take cumulative (last entry or only entry)
+              seasonStats = statGroup.splits[statGroup.splits.length - 1].stat;
+            }
+          });
+        }
+        if (!seasonStats) return;
+
+        var ip  = parseFloat(seasonStats.inningsPitched || '0');
+        var gs  = parseInt(seasonStats.gamesStarted    || 0);
+        if (gs < 1 || ip < 0.1) return;
+
+        var bf     = parseInt(seasonStats.battersFaced || 1);
+        var era    = parseFloat(seasonStats.era        || '0.00');
+        var whip   = parseFloat(seasonStats.whip       || '0.00');
+        var k      = parseInt(seasonStats.strikeOuts   || 0);
+        var bb     = parseInt(seasonStats.baseOnBalls  || 0);
+        var hr     = parseInt(seasonStats.homeRuns     || 0);
+        var go     = parseInt(seasonStats.groundOuts   || 0);
+        var ao     = parseInt(seasonStats.airOuts      || 0);
+
+        var liveStats = {
+          gs: gs, ip: ip, era: era, whip: whip,
+          k9:     ip > 0 ? parseFloat((k  / ip * 9   ).toFixed(2)) : 0,
+          bb9:    ip > 0 ? parseFloat((bb / ip * 9   ).toFixed(2)) : 0,
+          hrPer9: ip > 0 ? parseFloat((hr / ip * 9   ).toFixed(2)) : 0,
+          gbPct:  (go+ao) > 0 ? parseFloat((go/(go+ao)*100).toFixed(1)) : 45.0,
+          kPct:   bf > 0 ? parseFloat((k  / bf * 100).toFixed(1)) : 0,
+          bbPct:  bf > 0 ? parseFloat((bb / bf * 100).toFixed(1)) : 0,
+          kBBPct: parseFloat(((bf>0?k/bf*100:0)-(bf>0?bb/bf*100:0)).toFixed(1)),
+          ipGs:   gs > 0 ? parseFloat((ip / gs).toFixed(1)) : 0
+        };
+
+        // Match to SP dict — last name first, then fuzzy scan
+        var proj = SP[lastName];
+        if (!proj) {
+          Object.keys(SP).forEach(function(spKey) {
+            if (!proj && fullName.toLowerCase().indexOf(spKey.toLowerCase()) >= 0)
+              proj = SP[spKey];
+          });
+        }
+
+        if (proj) {
+          liveSpData[lastName] = blendSP(lastName, liveStats, proj);
+          PITCHER_FULL_NAMES[lastName] = fullName;
+          loaded++;
+        }
+      });
+
+      pitcherStatsLoaded = true;
+      console.log('[Diamond Oracle] Live pitcher stats: ' + loaded + ' of ' + ids.length + ' starters blended');
+
+      // Update Pitcher DB status
+      var ps = document.getElementById('pdb-status');
+      if (ps) { ps.textContent = 'Live 2026 stats: ' + loaded + ' starters · Auto-updated'; ps.className = 'pdb-status ok'; }
+      var pf = document.getElementById('pdb-fetched');
+      if (pf) pf.textContent = loaded;
+
+      if (callback) callback();
+    })
+    .catch(function(e) {
+      console.warn('[Diamond Oracle] Pitcher stats fetch failed:', e);
+      pitcherStatsError = true;
+      if (callback) callback();  // still render with baked/preseason data
+    });
+}
+
+// Convenience: show data source badge on a pick
+function spDataBadge(spName) {
+  var sp = liveSpData[spName];
+  if (!sp) return 'preseason';
+  return sp.dataSource || (sp.gs > 0 ? 'live' : 'preseason');
+}
+
 function loadBakedPitcherStats() {
   var baked = BAKED_LIVE_SP;
   var count = 0;
@@ -1989,23 +2123,41 @@ function hrVariancePenalty(spName) {
 
 function blendSP(name, live, proj) {
   if (!live || !proj) return proj || live;
-  var w = Math.min(1.0, (live.ip || 0) / 60);
+  // Recency-weighted blend: more starts = more weight on live data
+  var gs  = live.gs  || 0;
+  var ip  = live.ip  || 0;
+  // Start-count blend weight (more meaningful than IP for early season)
+  var w;
+  if      (gs === 0)  w = 0.00;  // no starts: 100% preseason
+  else if (gs === 1)  w = 0.25;  // 1 start:   25% live (tiny sample)
+  else if (gs <= 3)   w = 0.45;  // 2-3 starts: 45% live
+  else if (gs <= 6)   w = 0.65;  // 4-6 starts: 65% live
+  else if (gs <= 10)  w = 0.80;  // 7-10 starts: 80% live
+  else if (gs <= 20)  w = 0.90;  // 11-20 starts: 90% live
+  else                w = 1.00;  // full season: 100% live
+
   var out = {};
-  ['era','xfip','k9','bb9','ip6','hrPer9','gbPct','kPct','bbPct','kBBPct','ipGs'].forEach(function(k) {
+  // xfip gets lower live weight — it's a projection metric, preseason is meaningful longer
+  var xfipW = Math.min(w, 0.5); // never more than 50% live for xFIP in early season
+  ['era','k9','bb9','ip6','hrPer9','gbPct','kPct','bbPct','kBBPct','ipGs'].forEach(function(k) {
     var lv = live[k], pv = proj[k];
     if (lv !== undefined && pv !== undefined) {
       out[k] = parseFloat((w * lv + (1-w) * pv).toFixed(2));
-    } else if (lv !== undefined) {
-      out[k] = lv;
-    } else {
-      out[k] = pv;
-    }
+    } else if (lv !== undefined) { out[k] = lv;
+    } else { out[k] = pv; }
   });
-  out.hand = proj.hand;
-  out.note = proj.note;
-  out.ip = live.ip || 0;
-  out.gs = live.gs || 0;
+  // xFIP: blend separately with lower live weight early season
+  if (live.xfip !== undefined && proj.xfip !== undefined) {
+    out.xfip = parseFloat((xfipW * live.xfip + (1-xfipW) * proj.xfip).toFixed(2));
+  } else {
+    out.xfip = proj.xfip;
+  }
+  out.hand   = proj.hand;
+  out.note   = proj.note;
+  out.ip     = ip;
+  out.gs     = gs;
   out.blendW = w;
+  out.dataSource = gs === 0 ? 'preseason' : gs <= 3 ? 'early-blend' : gs <= 10 ? 'blend' : 'live';
   return out;
 }
 
@@ -2476,7 +2628,17 @@ function renderToday() {
       '<span class="pc-ab" style="color:'+teamC1(p[1])+'">'+teamAb(p[1])+'</span>'+
       '<span class="pc-team-full">'+p[1]+'</span></div>'+
       '</div>'+
-      '<div class="ps"><span class="psi sp">'+p[2]+' vs '+p[3]+'</span>'+
+      '<div class="ps">'+
+      '<span class="psi sp">'+p[2]+' vs '+p[3]+'</span>'+
+      (function(){
+        var src1=spDataBadge(p[2]), src2=spDataBadge(p[3]);
+        var badges='';
+        if(src1==='live'||src1==='blend'||src1==='early-blend')
+          badges+='<span style="font-family:IBM Plex Mono,monospace;font-size:6px;padding:1px 5px;border-radius:2px;background:rgba(60,184,120,.12);border:1px solid rgba(60,184,120,.3);color:var(--gn);margin-left:4px">⚡'+p[2]+'</span>';
+        if(src2==='live'||src2==='blend'||src2==='early-blend')
+          badges+='<span style="font-family:IBM Plex Mono,monospace;font-size:6px;padding:1px 5px;border-radius:2px;background:rgba(60,184,120,.12);border:1px solid rgba(60,184,120,.3);color:var(--gn);margin-left:4px">⚡'+p[3]+'</span>';
+        return badges;
+      })()+
       '<span class="psi">xFIP <b style="color:'+(parseFloat(xfipEdge)>0.2?'var(--gn)':parseFloat(xfipEdge)<-0.2?'var(--rd)':'var(--mu)')+'">'+(parseFloat(xfipEdge)>0?'+':'')+xfipEdge+'</b></span>'+
       (function(){
         var badges='';
@@ -3190,15 +3352,22 @@ window.addEventListener('load', function() {
   }
   setupWeekPills();
   loadBakedPitcherStats();
-  // Render today immediately — date-based, no async dependency
+  // 1. Baked stats: instant, no network needed
+  loadBakedPitcherStats();
+  // 2. Render today immediately
   renderToday();
-  // Fetch live schedule → drives Schedule tab
+  // 3. Fetch live schedule first (gives us pitcher IDs)
   fetchLiveSchedule(function() {
-    setupPills();
-  });
-  // Fetch BP fatigue → refresh today with fatigue badges
-  fetchBullpenFatigue(function() {
-    renderToday();
+    setupPills();  // Schedule tab
+    // 4. Now fetch pitcher stats using IDs from schedule
+    fetchAllPitcherStats(function() {
+      renderToday();      // re-render with live pitcher confidence
+      renderPitcherDB();
+      // 5. BP fatigue last pass
+      fetchBullpenFatigue(function() {
+        renderToday();
+      });
+    });
   });
   renderTicker();
   renderToday();
