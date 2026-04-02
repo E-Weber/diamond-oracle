@@ -2411,37 +2411,11 @@ function renderToday() {
   var pct=total>0?Math.round(W/total*100)+'%':'—';
   var pctCol=total>0?(W/total>=0.55?'var(--gn)':W/total<0.45?'var(--rd)':'var(--gd)'):'var(--mu)';
 
-  // Build today's valid team pairs from live schedule
-  var todayValidGames = null; // null = not loaded, [] = loaded
-  if (liveScheduleGames !== null) {
-    todayValidGames = [];
-    if (liveScheduleGames.length) {
-      liveScheduleGames.forEach(function(g){
-        // Store all name variants so matching is permissive
-        todayValidGames.push({
-          away: (g.away||'').toLowerCase(),
-          home: (g.home||'').toLowerCase(),
-          awayAbbr: (g.awayAbbr||'').toLowerCase(),
-          homeAbbr: (g.homeAbbr||'').toLowerCase()
-        });
-      });
-    }
-  }
-
+  // Simple date-based filter — stale picks already have future dates fixed
   var todayPicks = PICKS.filter(function(p){
     if (p[11]==='SKIP') return false;
     if (p[15]!==todayStr) return false;
     if (getPickResult(p)) return false;
-    // Validate against live schedule if loaded AND has games
-    if (todayValidGames && todayValidGames.length) {
-      var pa = p[0].toLowerCase(), ph = p[1].toLowerCase();
-      var match = todayValidGames.some(function(g){
-        return (g.away===pa || g.awayAbbr===pa) &&
-               (g.home===ph || g.homeAbbr===ph);
-      });
-      if (!match) return false;
-    }
-    // If todayValidGames is null (API failed) or empty (off day?), use date only
     return true;
   });
 
@@ -3216,14 +3190,15 @@ window.addEventListener('load', function() {
   }
   setupWeekPills();
   loadBakedPitcherStats();
-  // 1. Fetch live schedule first — drives both Schedule and Today tabs
+  // Render today immediately — date-based, no async dependency
+  renderToday();
+  // Fetch live schedule → drives Schedule tab
   fetchLiveSchedule(function() {
-    renderToday();   // Today tab: picks validated against real games
-    setupPills();    // Schedule tab: populated from live API data
-    // 2. Then fetch BP fatigue and refresh
-    fetchBullpenFatigue(function() {
-      renderToday();
-    });
+    setupPills();
+  });
+  // Fetch BP fatigue → refresh today with fatigue badges
+  fetchBullpenFatigue(function() {
+    renderToday();
   });
   renderTicker();
   renderToday();
