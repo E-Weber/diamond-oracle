@@ -1504,7 +1504,8 @@ var REAL_TEAM_IDS = {
 // ══════════ LIVE SCHEDULE VALIDATOR ══════════
 // Pulls today's actual games from MLB Stats API (free, no key)
 // Used to validate picks — only show picks for games actually scheduled today
-var liveScheduleGames = null; // null = not loaded yet, [] = loaded (empty or games)
+var liveScheduleGames = null;
+var liveScheduleByDate = {}; // keyed by "Thu Apr 2" → [games] // null = not loaded yet, [] = loaded (empty or games)
 
 var MLB_ABBREV_MAP = {
   'NYY':'Yankees','BOS':'Red Sox','TB':'Rays','TOR':'Blue Jays','BAL':'Orioles',
@@ -1514,6 +1515,123 @@ var MLB_ABBREV_MAP = {
   'CHC':'Cubs','STL':'Cardinals','MIL':'Brewers','CIN':'Reds','PIT':'Pirates',
   'LAD':'Dodgers','SD':'Padres','SF':'Giants','COL':'Rockies','AZ':'Diamondbacks','ARI':'Diamondbacks'
 };
+
+function fetchLiveSchedule(callback) {
+  // Fetch today + next 6 days from MLB Stats API
+  var now = new Date();
+  var dates = [];
+  for (var di = 0; di < 7; di++) {
+    var d = new Date(now);
+    d.setDate(d.getDate() + di);
+    var y = d.getFullYear();
+    var mo = String(d.getMonth()+1).padStart(2,'0');
+    var dd = String(d.getDate()).padStart(2,'0');
+    dates.push(y+'-'+mo+'-'+dd);
+  }
+  var startDate = dates[0];
+  var endDate   = dates[dates.length-1];
+
+  // Single API call for the full date range
+  var url = 'https://statsapi.mlb.com/api/v1/schedule?sportId=1' +
+    '&startDate='+startDate+'&endDate='+endDate +
+    '&hydrate=probablePitcher,venue,broadcasts' +
+    '&fields=dates,date,games,gamePk,status,abstractGameState,gameDate,' +
+    'teams,away,home,team,id,abbreviation,name,probablePitcher,fullName,' +
+    'venue,name,broadcasts,name';
+
+  fetch(url)
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      // Reset stores
+      liveScheduleGames = [];
+      liveScheduleByDate = {};
+
+      if (!data.dates) { if (callback) callback(); return; }
+
+      data.dates.forEach(function(dateEntry) {
+        var rawDate = dateEntry.date; // "2026-04-02"
+        var dayStr  = mlbDateToDayStr(rawDate);
+        liveScheduleByDate[dayStr] = [];
+
+        dateEntry.games.forEach(function(g) {
+          var awayAbbr = g.teams.away.team.abbreviation;
+          var homeAbbr = g.teams.home.team.abbreviation;
+          var awayName = MLB_ABBREV_MAP[awayAbbr] || g.teams.away.team.name.split(' ').pop();
+          var homeName = MLB_ABBREV_MAP[homeAbbr] || g.teams.home.team.name.split(' ').pop();
+
+          // Game time — gameDate is UTC ISO string
+          var gameTime = '';
+          if (g.gameDate) {
+            var gd = new Date(g.gameDate);
+            var hr = gd.getHours(), mn = gd.getMinutes();
+            var ampm = hr >= 12 ? 'p' : 'a';
+            hr = hr % 12 || 12;
+            gameTime = hr + ':' + String(mn).padStart(2,'0') + ampm;
+          }
+
+          // TV — first broadcast name
+          var tv = (g.broadcasts && g.broadcasts.length) ? g.broadcasts[0].name : 'mlbtv';
+
+          // Venue
+          var site = (g.venue && g.venue.name) ? g.venue.name : '';
+
+          var game = {
+            day:      dayStr,
+            away:     awayName,
+            home:     homeName,
+            awayAbbr: awayAbbr,
+            homeAbbr: homeAbbr,
+            t1:       awayName,
+            t2:       homeName,
+            tm:       gameTime,
+            tv:       tv,
+            site:     site,
+            sp1:      g.teams.away.probablePitcher ? lastName(g.teams.away.probablePitcher.fullName) : 'TBD',
+            sp2:      g.teams.home.probablePitcher ? lastName(g.teams.home.probablePitcher.fullName) : 'TBD',
+            sp1Full:  g.teams.away.probablePitcher ? g.teams.away.probablePitcher.fullName : 'TBD',
+            sp2Full:  g.teams.home.probablePitcher ? g.teams.home.probablePitcher.fullName : 'TBD',
+            status:   g.status ? g.status.abstractGameState : 'Preview',
+            gamePk:   g.gamePk
+          };
+
+          liveScheduleByDate[dayStr].push(game);
+          // Also push today's games into liveScheduleGames for backward compat
+          if (di === 0 || rawDate === startDate) {
+            // check if this date is today
+          }
+        });
+      });
+
+      // Populate liveScheduleGames with today
+      var days2=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+      var months2=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      var n=new Date();
+      var todayStr2=days2[n.getDay()]+' '+months2[n.getMonth()]+' '+n.getDate();
+      liveScheduleGames = liveScheduleByDate[todayStr2] || [];
+
+      if (callback) callback();
+    })
+    .catch(function(e) {
+      console.warn('[Diamond Oracle] Schedule API error:', e);
+      liveScheduleGames = null;
+      if (callback) callback();
+    });
+}
+
+function lastName(fullName) {
+  if (!fullName) return 'TBD';
+  var parts = fullName.trim().split(' ');
+  return parts[parts.length - 1];
+}
+
+function mlbDateToDayStr(isoDate) {
+  // "2026-04-02" → "Thu Apr 2"
+  var parts = isoDate.split('-');
+  var d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  var days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return days[d.getDay()] + ' ' + months[d.getMonth()] + ' ' + d.getDate();
+}
 
 function fetchLiveSchedule(callback) {
   var now = new Date();
@@ -2057,6 +2175,54 @@ function selectWeek(idx) {
 function setupPills() {
   var cont = document.getElementById('sched-pills');
   if (!cont) return;
+
+  var now = new Date();
+  var days2=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  var months2=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var todayStr = days2[now.getDay()]+' '+months2[now.getMonth()]+' '+now.getDate();
+
+  // Use live schedule if available, otherwise fall back to SCHEDULE array
+  var availDays = [];
+  if (liveScheduleByDate && Object.keys(liveScheduleByDate).length) {
+    // Sort days from live data
+    availDays = Object.keys(liveScheduleByDate).filter(function(d){
+      return liveScheduleByDate[d] && liveScheduleByDate[d].length > 0;
+    });
+    // Sort using date parsing
+    availDays.sort(function(a,b){
+      var pa=a.split(' '), pb=b.split(' ');
+      var months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      var da=new Date(2026, months.indexOf(pa[1]), parseInt(pa[2]));
+      var db=new Date(2026, months.indexOf(pb[1]), parseInt(pb[2]));
+      return da-db;
+    });
+  } else {
+    // Fallback: use SCHEDULE array, today + future only
+    var allDays = [];
+    SCHEDULE.forEach(function(g){ if(allDays.indexOf(g.day)<0) allDays.push(g.day); });
+    WEEKS.forEach(function(w){
+      w.days.forEach(function(d){ if(allDays.indexOf(d)>=0 && availDays.indexOf(d)<0) availDays.push(d); });
+    });
+    allDays.forEach(function(d){ if(availDays.indexOf(d)<0) availDays.push(d); });
+  }
+
+  // Only show today + future
+  var todayIdx = availDays.indexOf(todayStr);
+  var futureDays = todayIdx >= 0 ? availDays.slice(todayIdx) : availDays;
+  var defaultDay = futureDays.length ? futureDays[0] : (availDays.length ? availDays[availDays.length-1] : null);
+
+  cont.innerHTML = futureDays.map(function(d) {
+    var isToday = d === todayStr;
+    var label = isToday ? 'Today' : d.replace(/\w+ /, '');
+    return '<button class="rp'+(d===defaultDay?' on':'')+'" onclick="selectSchedDay(this,\''+d+'\')">' + label + '</button>';
+  }).join('');
+
+  if (defaultDay) renderSchedDay(defaultDay);
+}
+
+function setupPills() {
+  var cont = document.getElementById('sched-pills');
+  if (!cont) return;
   var now=new Date();
   var days2=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   var months2=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -2088,6 +2254,105 @@ function selectSchedDay(btn, day) {
 
 function renderSched() {
   setupPills();
+}
+
+function renderSched() {
+  setupPills();
+}
+
+function renderSchedDay(day) {
+  _schedDay = day;
+  var el = document.getElementById('sched-list');
+  if (!el) return;
+
+  // Prefer live schedule data, fall back to SCHEDULE array
+  var games = [];
+  if (liveScheduleByDate && liveScheduleByDate[day] && liveScheduleByDate[day].length) {
+    games = liveScheduleByDate[day];
+  } else {
+    // fallback
+    games = SCHEDULE.filter(function(g){ return g.day === day; }).map(function(g){
+      return { t1:g.t1, t2:g.t2, away:g.t1, home:g.t2, tm:g.tm, tv:g.tv, site:g.site, sp1:g.sp1, sp2:g.sp2, day:g.day };
+    });
+  }
+
+  if (!games.length) {
+    el.innerHTML = '<div style="text-align:center;padding:40px;font-family:IBM Plex Mono,monospace;font-size:10px;color:var(--mu)">No games scheduled — off day</div>';
+    return;
+  }
+
+  var now = new Date();
+  var days2=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  var months2=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var todayStr = days2[now.getDay()]+' '+months2[now.getMonth()]+' '+now.getDate();
+
+  var out = '<div class="sched-day"><div class="sched-day-hdr">'
+    + day + (day===todayStr ? ' <span style="font-family:IBM Plex Mono,monospace;font-size:9px;background:var(--or);color:#000;padding:2px 8px;border-radius:2px;vertical-align:middle;margin-left:8px">TODAY</span>' : '')
+    + '</div>';
+
+  games.forEach(function(g) {
+    var awayName = g.away || g.t1;
+    var homeName = g.home || g.t2;
+
+    // Match picks using both team names and date
+    var picks = PICKS.filter(function(p){
+      if (p[11]==='SKIP') return false;
+      var awayMatch = p[0]===awayName || p[0]===g.awayAbbr;
+      var homeMatch = p[1]===homeName || p[1]===g.homeAbbr;
+      // Date match: exact date string OR same teams and today
+      var dateMatch = p[15]===day || (p[15]===todayStr && day===todayStr);
+      return awayMatch && homeMatch && dateMatch;
+    });
+
+    var best = picks.find(function(p){ return p[11]==='★ BEST'; });
+    var play = picks.find(function(p){ return p[11]==='PLAY'; });
+    var hasPick = best || play;
+
+    var extraCls = best ? 'sched-best' : play ? 'sched-play' : '';
+    var tv = (g.tv||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    var tvCls = tv.includes('espn')?'espn':tv.includes('fox')?'fox':tv.includes('tbs')?'tbs':
+                tv.includes('peacock')?'peacock':tv.includes('apple')?'apple':
+                tv.includes('netflix')?'espn':'mlbtv';
+    var tvLabel = g.tv || 'MLB.TV';
+
+    // Format time — strip trailing 'p'/'a' for display
+    var tmRaw = g.tm || '';
+    var tmNum = tmRaw.replace(/[ap]$/i,'');
+    var tmAmpm = /p$/i.test(tmRaw) ? 'PM ET' : /a$/i.test(tmRaw) ? 'AM ET' : 'ET';
+
+    // Starter display — use full name if available, last name fallback
+    var sp1Label = g.sp1Full ? g.sp1Full.split(' ').pop() : (g.sp1 || 'TBD');
+    var sp2Label = g.sp2Full ? g.sp2Full.split(' ').pop() : (g.sp2 || 'TBD');
+
+    out += '<div class="sched-game '+extraCls+'" onclick="this.classList.toggle(\'open\')">' +
+      '<div class="sched-row">' +
+      '<div><div class="sched-time">'+tmNum+'</div><div class="sched-time-ampm">'+tmAmpm+'</div></div>' +
+      '<div class="sched-matchup">' +
+        '<div class="sched-teams">' +
+          '<span style="color:'+teamC1(awayName)+'">'+teamAb(awayName)+'</span>' +
+          '<span class="sched-vs">@</span>' +
+          '<span style="color:'+teamC1(homeName)+'">'+teamAb(homeName)+'</span>' +
+          '<span style="font-family:IBM Plex Mono,monospace;font-size:8px;color:var(--mu);margin-left:6px">'+sp1Label+' vs '+sp2Label+'</span>' +
+        '</div>' +
+        '<div class="sched-meta"><span>'+g.site+'</span></div>' +
+      '</div>' +
+      '<div class="sched-right">' +
+        '<div class="sched-tv '+tvCls+'">'+tvLabel+'</div>' +
+        (best ? '<div class="sched-pick-badge">★ BEST: '+best[8]+'</div>' :
+         play ? '<div class="sched-pick-badge">PLAY: '+play[8]+'</div>' : '') +
+      '</div>' +
+      '</div>' +
+      '</div>';
+  });
+
+  out += '</div>';
+
+  // Status note if live data
+  if (liveScheduleByDate && liveScheduleByDate[day]) {
+    out += '<div style="font-family:IBM Plex Mono,monospace;font-size:7px;color:var(--mu);text-align:right;margin-top:6px;padding-right:4px">⚡ Live from MLB Stats API · '+games.length+' games</div>';
+  }
+
+  el.innerHTML = out;
 }
 
 function renderSchedDay(day) {
@@ -2146,10 +2411,24 @@ function renderToday() {
   var pct=total>0?Math.round(W/total*100)+'%':'—';
   var pctCol=total>0?(W/total>=0.55?'var(--gn)':W/total<0.45?'var(--rd)':'var(--gd)'):'var(--mu)';
 
+  // Build list of teams actually playing today from live schedule
+  var todayTeamPairs = [];
+  if (liveScheduleGames && liveScheduleGames.length) {
+    liveScheduleGames.forEach(function(g){
+      todayTeamPairs.push(g.away+'|'+g.home);
+      todayTeamPairs.push((g.awayAbbr||'')+'|'+(g.homeAbbr||''));
+    });
+  }
+
   var todayPicks = PICKS.filter(function(p){
     if (p[11]==='SKIP') return false;
     if (p[15]!==todayStr) return false;
     if (getPickResult(p)) return false;
+    // If live schedule loaded, validate pick's game is actually today
+    if (todayTeamPairs.length) {
+      var key = p[0]+'|'+p[1];
+      if (todayTeamPairs.indexOf(key) < 0) return false;
+    }
     return true;
   });
 
@@ -2924,14 +3203,15 @@ window.addEventListener('load', function() {
   }
   setupWeekPills();
   loadBakedPitcherStats();
-  // Render today immediately (date-based, no async dependency)
-  renderToday();
-  // Then silently fetch BP fatigue and re-render when ready
-  fetchBullpenFatigue(function() {
-    renderToday();
+  // 1. Fetch live schedule first — drives both Schedule and Today tabs
+  fetchLiveSchedule(function() {
+    renderToday();   // Today tab: picks validated against real games
+    setupPills();    // Schedule tab: populated from live API data
+    // 2. Then fetch BP fatigue and refresh
+    fetchBullpenFatigue(function() {
+      renderToday();
+    });
   });
-  // Fetch live schedule in background (for future use, non-blocking)
-  fetchLiveSchedule(function(){});
   renderTicker();
   renderToday();
   setupTeams();
