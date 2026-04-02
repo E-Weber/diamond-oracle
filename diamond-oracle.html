@@ -1119,10 +1119,7 @@ const PICKS=[
   ["Giants","Padres","Webb","King",-118,+100,-1.5,7.0,"UNDER 7.0","UNDER",63,"PLAY","Webb G2 at Petco (pf 0.92) vs King. Best pitcher's park in NL + two quality arms. Model projects 6.1 runs.","","","Wed Apr 1","NL"],
   ["Guardians","Dodgers","Williams","Glasnow",-220,+182,-1.5,8.0,"Dodgers -1.5","RL",61,"PLAY","Glasnow debut (xFIP 3.22, 12.4 K/9) vs Williams (ERA>xERA gap — been lucky). Dodgers wRC+ 128 at home. Model projects LAD by 1.9 runs.","","","Wed Apr 1","NL"],
   // ── THU APR 2 ──
-<<<<<<< HEAD
   ["Twins","Royals","Bradley","Ragans",-108,+100,-1.5,7.5,"UNDER 7.5","UNDER",61,"PLAY","Bradley sharp in debut (9 Ks, 1 ER in 4.1 IP). Ragans got rocked G1 (4 ER, 3 HR vs Braves) but is legitimately elite — bounce-back expected. Kauffman Stadium (pf 0.98) slight pitcher lean. Two quality arms on short rest. Model projects 7.0 runs.","","","Thu Apr 2","AL"],
-=======
->>>>>>> 5908ac858b4d7a85e7d73ffdff93df82b7d895a3
   ["Mets","Giants","Peterson","Ray",-118,+100,-1.5,7.0,"UNDER 7.0","UNDER",65,"★ BEST","Oracle Park (pf 0.90) is the best pitcher's park in baseball. Peterson (55% GB rate, 0.00 ERA debut) meets Ray (xFIP 4.02, LHP deception) in a ground-ball duel at a park that kills offense. Small slate = sharp market. Model projects 6.1 runs. Cleanest play of a 3-game slate. ★","","","Thu Apr 2","NL"],
   ["Braves","Diamondbacks","López","Nelson",-140,+118,-1.5,8.0,"Braves ML","ML",61,"PLAY","López solid in debut (6 IP, 1 ER vs Royals). Nelson rough (7.71 ERA G1 vs Tigers) despite strong 2025 at Chase Field (2.71 ERA). Braves wRC+ 124 vs Nelson who hasn't found his footing yet. Chase Field neutral park. Model projects ATL 61%.","","","Thu Apr 2","NL"],
   // ── WED APR 2+ ──
@@ -1504,7 +1501,6 @@ var REAL_TEAM_IDS = {
   "Dodgers":119,"Padres":135,"Giants":137,"Rockies":115,"Diamondbacks":109
 };
 
-<<<<<<< HEAD
 // ══════════ LIVE SCHEDULE VALIDATOR ══════════
 // Pulls today's actual games from MLB Stats API (free, no key)
 // Used to validate picks — only show picks for games actually scheduled today
@@ -1572,8 +1568,6 @@ function isGameScheduledToday(p) {
 }
 
 
-=======
->>>>>>> 5908ac858b4d7a85e7d73ffdff93df82b7d895a3
 function getBPFatigueScore(teamName) {
   var f = bpFatigue[teamName];
   if (!f) return 0;
@@ -2156,8 +2150,6 @@ function renderToday() {
     if (p[11]==='SKIP') return false;
     if (p[15]!==todayStr) return false;
     if (getPickResult(p)) return false;
-    // Validate against live schedule — won't show picks for games not actually today
-    if (!isGameScheduledToday(p)) return false;
     return true;
   });
 
@@ -2932,21 +2924,14 @@ window.addEventListener('load', function() {
   }
   setupWeekPills();
   loadBakedPitcherStats();
-<<<<<<< HEAD
-  // Fetch live schedule first (validates which games are real today)
-  // Then fetch BP fatigue — both refresh today tab when done
-  fetchLiveSchedule(function() {
-    renderToday(); // immediate render with live schedule validation
-    fetchBullpenFatigue(function() {
-      renderToday(); // re-render with fatigue scores added
-    });
-=======
-  // Silently fetch bullpen fatigue on load
+  // Render today immediately (date-based, no async dependency)
+  renderToday();
+  // Then silently fetch BP fatigue and re-render when ready
   fetchBullpenFatigue(function() {
-    // Refresh today tab once fatigue data is available
     renderToday();
->>>>>>> 5908ac858b4d7a85e7d73ffdff93df82b7d895a3
   });
+  // Fetch live schedule in background (for future use, non-blocking)
+  fetchLiveSchedule(function(){});
   renderTicker();
   renderToday();
   setupTeams();
