@@ -577,12 +577,11 @@ footer{background:var(--sf);border-top:1px solid var(--bd);padding:13px 28px;dis
   <input class="lob-key" id="oddsKey" type="password" placeholder="Paste The Odds API key here..." autocomplete="off">
   <button class="lob-btn" onclick="fetchLiveOdds()">↻ FETCH NOW</button>
   <span class="lob-status" id="oddsStatus">Enter key to sync live spreads, totals &amp; moneylines</span>
-  <span class="lob-hint">Free key → <a href="https://the-odds-api.com" target="_blank">the-odds-api.com</a></span>
+  <span class="lob-hint">Free key → <a href="https://the-odds-api.com" target="_blank">the-odds-api.com</a> · <a href="#" onclick="localStorage.removeItem('oddsApiKey');document.getElementById('oddsKey').value='';document.getElementById('oddsStatus').textContent='Key cleared';return false;" style="color:var(--mu)">clear saved</a></span>
 </div></div>
 
 <div class="nav"><div class="nav-i">
   <button class="nb on" onclick="go('today')">Today</button>
-  <button class="nb" onclick="go('sharp')">Sharp Money</button>
   <button class="nb" onclick="go('sched')">Schedule</button>
   <button class="nb" onclick="go('pitchers')">⚾ Pitchers</button>
   <button class="nb" onclick="go('weather')">⛅ Weather</button>
@@ -611,11 +610,7 @@ footer{background:var(--sf);border-top:1px solid var(--bd);padding:13px 28px;dis
 </div>
 
 <!-- SHARP MONEY TAB -->
-<div class="tab" id="tab-sharp">
-  <div class="sh"><div class="sh-l">DraftKings · BetMGM · Caesars · SuperBook</div><div class="sh-t">SHARP MONEY TRACKER</div><div class="sh-m">Professional betting action · Line movement vs model alignment</div></div>
-  <div class="sum" id="sharp-sum"></div>
-  <div class="sl" id="sharp-list"></div>
-</div>
+
 
 <!-- TOTALS TAB -->
 <div class="tab" id="tab-teams">
@@ -1061,6 +1056,8 @@ const SP={
   "Wheeler":     {hand:"R",era:3.18,xfip:3.28,k9:9.4,bb9:2.2,ip6:0.76,note:"Phillies — deep innings, sub-3.30 xFIP. TOS surgery return."},
   "Cole":        {hand:"R",era:2.95,xfip:3.12,k9:11.2,bb9:1.9,ip6:0.74,note:"Yankees ace — elite K%, low BB risk."},
   "Sale":        {hand:"L",era:3.04,xfip:3.18,k9:10.6,bb9:2.4,ip6:0.68,note:"Braves LH ace — elite strikeout stuff."},
+  "Bradley":     {hand:"R",era:2.08,xfip:3.62,k9:9.8,bb9:2.8,ip6:0.70,note:"Royals — Taj Bradley, 9 Ks in debut vs Orioles. ERA/xERA gap — early sample but encouraging."},
+  "Taj Bradley": {hand:"R",era:2.08,xfip:3.62,k9:9.8,bb9:2.8,ip6:0.70,note:"Royals — Taj Bradley, 9 Ks in debut vs Orioles."},
   "Average SP":{hand:"R",era:4.10,xfip:4.20,k9:8.5,bb9:3.2,ip6:0.65,note:"Generic above-average starter"},
 };
 
@@ -1117,10 +1114,19 @@ const PICKS=[
   ["Rays","Brewers","McClanahan","Woodruff",-125,+105,-1.5,7.5,"UNDER 7.5","UNDER",63,"PLAY","McClanahan TJ return (2.08 ERA spring, 10.3 K/9) vs Woodruff (11.5 K/9 2025 return). Two power arms, both post-injury showcasing elite stuff. American Family Field (pf 0.97). Model projects 6.4 runs. High K potential + both pitchers motivated to prove health.","","","Tue Mar 31","AL"],
   ["Yankees","Mariners","Schlittler","Kirby",-115,+100,-1.5,7.5,"UNDER 7.0","UNDER",62,"PLAY","Kirby (xFIP 3.34, elite command, 1.4 BB/9) at T-Mobile (pf 0.94) vs Schlittler (2.96 ERA 2025). Two quality right-handers in one of the best pitcher's parks. Mariners 2-0 in this series already. Model projects 5.8 runs.","","","Tue Mar 31","AL"],
     // ── WED APR 1 ──
+  ["Athletics","Braves","Springs","Sale",-210,+175,-1.5,7.5,"Braves -1.5","RL",64,"★ BEST","Sale G2 fully sharp after 6-K debut. Athletics 92 wRC+ = weakest offense in AL. Clear SP edge. Model projects ATL by 2.3 runs. ★","","","Wed Apr 1","NL"],
+  ["Pirates","Reds","Skenes","Abbott",-115,+105,-1.5,7.5,"Pirates ML","ML",62,"PLAY","Skenes bounce-back — G1 error-driven disaster. Elite stuff (1.96 ERA career). Abbott solid but talent gap is real. Model 62% Pirates.","","","Wed Apr 1","NL"],
+  ["Giants","Padres","Webb","King",-118,+100,-1.5,7.0,"UNDER 7.0","UNDER",63,"PLAY","Webb G2 at Petco (pf 0.92) vs King. Best pitcher's park in NL + two quality arms. Model projects 6.1 runs.","","","Wed Apr 1","NL"],
+  ["Guardians","Dodgers","Williams","Glasnow",-220,+182,-1.5,8.0,"Dodgers -1.5","RL",61,"PLAY","Glasnow debut (xFIP 3.22, 12.4 K/9) vs Williams (ERA>xERA gap — been lucky). Dodgers wRC+ 128 at home. Model projects LAD by 1.9 runs.","","","Wed Apr 1","NL"],
+  // ── THU APR 2 ──
+  ["Twins","Royals","Bradley","Ragans",-108,+100,-1.5,7.5,"UNDER 7.5","UNDER",61,"PLAY","Bradley sharp in debut (9 Ks, 1 ER in 4.1 IP). Ragans got rocked G1 (4 ER, 3 HR vs Braves) but is legitimately elite — bounce-back expected. Kauffman Stadium (pf 0.98) slight pitcher lean. Two quality arms on short rest. Model projects 7.0 runs.","","","Thu Apr 2","AL"],
+  ["Mets","Giants","Peterson","Ray",-118,+100,-1.5,7.0,"UNDER 7.0","UNDER",65,"★ BEST","Oracle Park (pf 0.90) is the best pitcher's park in baseball. Peterson (55% GB rate, 0.00 ERA debut) meets Ray (xFIP 4.02, LHP deception) in a ground-ball duel at a park that kills offense. Small slate = sharp market. Model projects 6.1 runs. Cleanest play of a 3-game slate. ★","","","Thu Apr 2","NL"],
+  ["Braves","Diamondbacks","López","Nelson",-140,+118,-1.5,8.0,"Braves ML","ML",61,"PLAY","López solid in debut (6 IP, 1 ER vs Royals). Nelson rough (7.71 ERA G1 vs Tigers) despite strong 2025 at Chase Field (2.71 ERA). Braves wRC+ 124 vs Nelson who hasn't found his footing yet. Chase Field neutral park. Model projects ATL 61%.","","","Thu Apr 2","NL"],
+  // ── WED APR 2+ ──
   ["Yankees","Orioles","Rodon","Burnes",-120,+100,-1.5,8.0,"OVER 8.0","OVER",60,"PLAY","Rodon vs Burnes is quality vs quality — but both have health flags. Camden Yards (pf 1.00) neutral. Yankees wRC+ 118, Orioles 114. Rodon IP6 only 65% — expect bullpen early. Orioles bullpen dependence low (6/10) — they have depth. Total 8.0 feels low for two powerful offenses when both aces may not go deep. PLAY OVER.","","C. Rodon health flag","Wed Apr 1","AL"],
   // ── THU APR 2 ──
-  ["Dodgers","Rockies","Ohtani","Freeland",+140,-165,-1.5,11.5,"OVER 11.5","OVER",72,"★ BEST","🏔 COORS FIELD: Park factor 1.28 runs, HR 1.38. Ohtani pitching for first time post-TJ — expect 5 IP max with high pitch counts. Freeland xFIP 4.24 — inflated to 5+ at Coors. Dodgers wRC+ 128, Rockies 108. Both bullpens will be active by inning 5. Model projects 14.8 runs — 3.3 runs OVER the number. Biggest O/U edge of the week. ★","sharp","","Thu Apr 2","NL"],
-  ["Brewers","Reds","Peralta","Greene",+110,-130,-1.5,8.5,"Reds -1.5","RL",60,"LEAN","Great American Ball Park (pf 1.02, HR 1.05). Greene xFIP 3.64 vs Brewers wRC+ 101 (below average). Reds offense improved (wRC+ 108). Peralta's walk rate (2.8 BB/9) could be exploited. Model: Reds by 0.9 runs. Lean for home team, not strong conviction without confirmed sharp action.","","","Thu Apr 2","NL"],
+  ["Dodgers","Rockies","Ohtani","Freeland","SKIP",+140,-165,-1.5,11.5,"OVER 11.5","OVER",72,"★ BEST","🏔 COORS FIELD: Park factor 1.28 runs, HR 1.38. Ohtani pitching for first time post-TJ — expect 5 IP max with high pitch counts. Freeland xFIP 4.24 — inflated to 5+ at Coors. Dodgers wRC+ 128, Rockies 108. Both bullpens will be active by inning 5. Model projects 14.8 runs — 3.3 runs OVER the number. Biggest O/U edge of the week. ★","sharp","","Fri Apr 3","NL"],
+  ["Brewers","Reds","Peralta","Greene",+110,-130,-1.5,8.5,"Reds -1.5","RL",60,"LEAN","Great American Ball Park (pf 1.02, HR 1.05). Greene xFIP 3.64 vs Brewers wRC+ 101 (below average). Reds offense improved (wRC+ 108). Peralta's walk rate (2.8 BB/9) could be exploited. Model: Reds by 0.9 runs. Lean for home team, not strong conviction without confirmed sharp action.","","","Sat Apr 4","NL"],
 ];
 
 // ══════════ TOTALS SPECIFIC PICKS ══════════
@@ -1130,7 +1136,7 @@ const TOTALS=[
   ["Guardians","Mariners","Cecconi","Woo",7.0,"UNDER",5.9,62,"PLAY","T-Mobile Park (pf 0.94) + Woo dominant at home. Cecconi vs Woo is an excellent UNDER matchup.","Sat Mar 28"],
   ["Astros","Rangers","Valdez","Eovaldi",8.5,"UNDER",7.4,61,"PLAY","Globe Life neutral park. Both bullpens elite. Ground ball-heavy matchup.","Sun Mar 29"],
   ["Padres","Giants","Cease","Webb",7.0,"UNDER",5.9,65,"PLAY","Oracle Park (pf 0.90). Best pitcher's park in MLB amplifies both pitchers' edges.","Mon Mar 30"],
-  ["Dodgers","Rockies","Ohtani","Freeland",11.5,"OVER",14.8,72,"★ BEST","Coors Field (pf 1.28). Ohtani limited IP, Freeland inflated. Both bullpens exposed early.","Thu Apr 2"],
+  ["Dodgers","Rockies","Ohtani","Freeland","SKIP",11.5,"OVER",14.8,72,"★ BEST","Coors Field (pf 1.28). Ohtani limited IP, Freeland inflated. Both bullpens exposed early.","Thu Apr 2"],
 ];
 
 
@@ -1278,7 +1284,29 @@ const SCHEDULE=[
   {day:"Mon Mar 30",t1:"Yankees",t2:"Mariners",tm:"9:40p",tv:"TBS",site:"T-Mobile Park, Seattle",sp1:"Fried",sp2:"Gilbert",region:"AL East/West"},
   {day:"Mon Mar 30",t1:"Tigers",t2:"Diamondbacks",tm:"10:10p",tv:"mlbtv",site:"Chase Field, Phoenix",sp1:"Skubal",sp2:"Gallen",region:"AL/NL"},
   {day:"Mon Mar 30",t1:"Guardians",t2:"Dodgers",tm:"10:10p",tv:"mlbtv",site:"Dodger Stadium, Los Angeles",sp1:"Williams",sp2:"Glasnow",region:"AL/NL"},
-    // ── TUE MAR 31 ── (confirmed from DraftKings/rotations)
+  
+  // ── WED APR 1 — 15 games ──
+  {day:"Wed Apr 1",t1:"Athletics",t2:"Braves",tm:"12:15p",tv:"mlbtv",site:"Truist Park, Atlanta",sp1:"Springs",sp2:"Sale",region:"AL/NL"},
+  {day:"Wed Apr 1",t1:"Rangers",t2:"Orioles",tm:"12:35p",tv:"mlbtv",site:"Camden Yards, Baltimore",sp1:"deGrom",sp2:"Rogers",region:"AL East"},
+  {day:"Wed Apr 1",t1:"Pirates",t2:"Reds",tm:"12:40p",tv:"mlbtv",site:"Great American Ball Park, Cin",sp1:"Skenes",sp2:"Abbott",region:"NL"},
+  {day:"Wed Apr 1",t1:"Nationals",t2:"Phillies",tm:"1:05p",tv:"mlbtv",site:"Citizens Bank Park, Philly",sp1:"Cavalli",sp2:"Nola",region:"NL East"},
+  {day:"Wed Apr 1",t1:"Rockies",t2:"Blue Jays",tm:"1:07p",tv:"mlbtv",site:"Rogers Centre, Toronto",sp1:"Lorenzen",sp2:"Berrios",region:"NL/AL"},
+  {day:"Wed Apr 1",t1:"White Sox",t2:"Marlins",tm:"1:10p",tv:"mlbtv",site:"loanDepot Park, Miami",sp1:"Smith",sp2:"Perez",region:"AL/NL"},
+  {day:"Wed Apr 1",t1:"Mets",t2:"Cardinals",tm:"1:15p",tv:"mlbtv",site:"Busch Stadium, St. Louis",sp1:"Peterson",sp2:"May",region:"NL"},
+  {day:"Wed Apr 1",t1:"Rays",t2:"Brewers",tm:"1:40p",tv:"mlbtv",site:"American Family Field, Milwaukee",sp1:"Pepiot",sp2:"Misiorowski",region:"AL/NL"},
+  {day:"Wed Apr 1",t1:"Red Sox",t2:"Astros",tm:"2:10p",tv:"mlbtv",site:"Daikin Park, Houston",sp1:"Houck",sp2:"Imai",region:"AL"},
+  {day:"Wed Apr 1",t1:"Angels",t2:"Cubs",tm:"2:20p",tv:"mlbtv",site:"Wrigley Field, Chicago",sp1:"Soriano",sp2:"Taillon",region:"AL/NL"},
+  {day:"Wed Apr 1",t1:"Tigers",t2:"Diamondbacks",tm:"3:40p",tv:"mlbtv",site:"Chase Field, Phoenix",sp1:"Skubal",sp2:"Gallen",region:"AL/NL"},
+  {day:"Wed Apr 1",t1:"Giants",t2:"Padres",tm:"4:10p",tv:"Fox",site:"Petco Park, San Diego",sp1:"Webb",sp2:"King",region:"NL West"},
+  {day:"Wed Apr 1",t1:"Yankees",t2:"Mariners",tm:"4:10p",tv:"mlbtv",site:"T-Mobile Park, Seattle",sp1:"Rodon",sp2:"Woo",region:"AL"},
+  {day:"Wed Apr 1",t1:"Twins",t2:"Royals",tm:"7:40p",tv:"mlbtv",site:"Kauffman Stadium, KC",sp1:"Ryan",sp2:"Ragans",region:"AL Central"},
+  {day:"Wed Apr 1",t1:"Guardians",t2:"Dodgers",tm:"8:20p",tv:"mlbtv",site:"Dodger Stadium, Los Angeles",sp1:"Williams",sp2:"Glasnow",region:"AL/NL"},
+  // ── THU APR 2 — 3 games (off day for most teams) ──
+  {day:"Thu Apr 2",t1:"Twins",t2:"Royals",tm:"2:10p",tv:"mlbtv",site:"Kauffman Stadium, KC",sp1:"Bradley",sp2:"Ragans",region:"AL Central"},
+  {day:"Thu Apr 2",t1:"Braves",t2:"Diamondbacks",tm:"9:40p",tv:"mlbtv",site:"Chase Field, Phoenix",sp1:"López",sp2:"Nelson",region:"NL"},
+  {day:"Thu Apr 2",t1:"Mets",t2:"Giants",tm:"9:45p",tv:"MLB Network",site:"Oracle Park, San Francisco",sp1:"Peterson",sp2:"Ray",region:"NL"},
+
+  // ── TUE MAR 31 ── (confirmed from DraftKings/rotations)
   {day:"Tue Mar 31",t1:"Rangers",t2:"Orioles",tm:"6:35p",tv:"mlbtv",site:"Camden Yards, Baltimore",sp1:"deGrom",sp2:"Eflin",region:"AL East"},
   {day:"Tue Mar 31",t1:"Nationals",t2:"Phillies",tm:"6:40p",tv:"mlbtv",site:"Citizens Bank Park, Philly",sp1:"Griffin",sp2:"Luzardo",region:"NL East"},
   {day:"Tue Mar 31",t1:"Pirates",t2:"Reds",tm:"6:40p",tv:"mlbtv",site:"Great American Ball Park, Cincinnati",sp1:"Chandler",sp2:"Burns",region:"NL Central"},
@@ -1366,6 +1394,37 @@ const RESULTS={
   "Yankees|Mariners|Mon Mar 30":        {as:1,  hs:2,  st:"final"},
   "Tigers|Diamondbacks|Mon Mar 30":     {as:6,  hs:9,  st:"final"},
   "Guardians|Dodgers|Mon Mar 30":       {as:4,  hs:2,  st:"final"},
+  // ── TUE MAR 31 ──
+  "Rangers|Orioles|Tue Mar 31":        {as:8,  hs:5,  st:"final"},
+  "Nationals|Phillies|Tue Mar 31":     {as:2,  hs:3,  st:"final"},
+  "Pirates|Reds|Tue Mar 31":           {as:8,  hs:3,  st:"final"},
+  "White Sox|Marlins|Tue Mar 31":      {as:2,  hs:9,  st:"final"},
+  "Rockies|Blue Jays|Tue Mar 31":      {as:1,  hs:5,  st:"final"},
+  "Athletics|Braves|Tue Mar 31":       {as:5,  hs:2,  st:"final"},
+  "Rays|Brewers|Tue Mar 31":           {as:2,  hs:6,  st:"final"},
+  "Angels|Cubs|Tue Mar 31":            {as:2,  hs:0,  st:"final"},
+  "Mets|Cardinals|Tue Mar 31":         {as:0,  hs:3,  st:"final"},
+  "Red Sox|Astros|Tue Mar 31":         {as:2,  hs:9,  st:"final"},
+  "Giants|Padres|Tue Mar 31":          {as:9,  hs:3,  st:"final"},
+  "Yankees|Mariners|Tue Mar 31":       {as:5,  hs:0,  st:"final"},
+  "Tigers|Diamondbacks|Tue Mar 31":    {as:5,  hs:7,  st:"final"},
+  "Guardians|Dodgers|Tue Mar 31":      {as:1,  hs:4,  st:"final"},
+  // ── WED APR 1 ──
+  "Athletics|Braves|Wed Apr 1":        {as:1,  hs:5,  st:"final"},  // Braves -1.5 ✓ WIN (margin +4)
+  "Rangers|Orioles|Wed Apr 1":         {as:3,  hs:8,  st:"final"},  // Orioles won big
+  "Pirates|Reds|Wed Apr 1":            {as:8,  hs:3,  st:"final"},  // Pirates ML ✓ WIN
+  "Nationals|Phillies|Wed Apr 1":      {as:5,  hs:6,  st:"final"},  // Phillies won
+  "Rockies|Blue Jays|Wed Apr 1":       {as:2,  hs:1,  st:"final"},  // Rockies upset
+  "White Sox|Marlins|Wed Apr 1":       {as:0,  hs:10, st:"final"},  // Marlins blowout
+  "Mets|Cardinals|Wed Apr 1":          {as:1,  hs:2,  st:"final"},  // Cardinals won
+  "Rays|Brewers|Wed Apr 1":            {as:2,  hs:8,  st:"final"},  // Brewers won
+  "Red Sox|Astros|Wed Apr 1":          {as:4,  hs:6,  st:"final"},  // Astros won
+  "Angels|Cubs|Wed Apr 1":             {as:2,  hs:6,  st:"final"},  // Cubs won
+  "Tigers|Diamondbacks|Wed Apr 1":     {as:0,  hs:1,  st:"final"},  // Skubal gem, D-backs won 1-0
+  "Giants|Padres|Wed Apr 1":           {as:1,  hs:7,  st:"final"},  // UNDER 7.0 ❌ LOSS (8 total)
+  "Yankees|Mariners|Wed Apr 1":        {as:5,  hs:3,  st:"final"},  // Yankees won
+  "Twins|Royals|Wed Apr 1":            {as:9,  hs:13, st:"final"},  // Royals won big
+  "Guardians|Dodgers|Wed Apr 1":       {as:4,  hs:1,  st:"final"},  // Dodgers -1.5 ❌ LOSS (CLE won)
 };
 
 // ══════════ MODEL WEIGHTS ══════════
@@ -1414,6 +1473,326 @@ var CURRENT_WEEK_DAYS = WEEKS[0].days;
 
 // ══════════ LIVE SP DATA ══════════
 var liveSpData = {};
+
+// ══════════ BULLPEN FATIGUE ══════════
+// Keyed by team name → {pitches1: yesterday, pitches2: 2d ago, pitches3: 3d ago, score: 0-10}
+// score: 0=fresh, 10=exhausted  Penalizes RL confidence directly
+var bpFatigue = {};
+var rlmData = {};   // Reverse Line Movement: keyed by "away|home" → {signal, delta, pct}
+var liveOddsData = {};  // raw odds API data keyed by "away|home"
+
+// MLB team ID map (name → ID for Stats API)
+var MLB_TEAM_IDS = {
+  "Yankees":112,"Red Sox":111,"Rays":139,"Blue Jays":141,"Orioles":110,
+  "Guardians":114,"White Sox":145,"Tigers":116,"Royals":118,"Twins":142,
+  "Astros":117,"Rangers":140,"Mariners":136,"Angels":108,"Athletics":133,
+  "Mets":121,"Phillies":143,"Braves":144,"Marlins":146,"Nationals":120,
+  "Cubs":112+1000,"Cardinals":138,"Brewers":158,"Reds":113,"Pirates":134,
+  "Dodgers":119,"Padres":135,"Giants":137,"Rockies":115,"Diamondbacks":109
+};
+// Correct Cubs ID
+MLB_TEAM_IDS["Cubs"] = 112;
+var REAL_TEAM_IDS = {
+  "Yankees":147,"Red Sox":111,"Rays":139,"Blue Jays":141,"Orioles":110,
+  "Guardians":114,"White Sox":145,"Tigers":116,"Royals":118,"Twins":142,
+  "Astros":117,"Rangers":140,"Mariners":136,"Angels":108,"Athletics":133,
+  "Mets":121,"Phillies":143,"Braves":144,"Marlins":146,"Nationals":120,
+  "Cubs":112,"Cardinals":138,"Brewers":158,"Reds":113,"Pirates":134,
+  "Dodgers":119,"Padres":135,"Giants":137,"Rockies":115,"Diamondbacks":109
+};
+
+// ══════════ LIVE SCHEDULE VALIDATOR ══════════
+// Pulls today's actual games from MLB Stats API (free, no key)
+// Used to validate picks — only show picks for games actually scheduled today
+var liveScheduleGames = null; // null = not loaded yet, [] = loaded (empty or games)
+
+var MLB_ABBREV_MAP = {
+  'NYY':'Yankees','BOS':'Red Sox','TB':'Rays','TOR':'Blue Jays','BAL':'Orioles',
+  'CLE':'Guardians','CWS':'White Sox','DET':'Tigers','KC':'Royals','MIN':'Twins',
+  'HOU':'Astros','TEX':'Rangers','SEA':'Mariners','LAA':'Angels','ATH':'Athletics','OAK':'Athletics',
+  'NYM':'Mets','PHI':'Phillies','ATL':'Braves','MIA':'Marlins','WSH':'Nationals','WAS':'Nationals',
+  'CHC':'Cubs','STL':'Cardinals','MIL':'Brewers','CIN':'Reds','PIT':'Pirates',
+  'LAD':'Dodgers','SD':'Padres','SF':'Giants','COL':'Rockies','AZ':'Diamondbacks','ARI':'Diamondbacks'
+};
+
+function fetchLiveSchedule(callback) {
+  var now = new Date();
+  var y = now.getFullYear();
+  var mo = String(now.getMonth()+1).padStart(2,'0');
+  var d = String(now.getDate()).padStart(2,'0');
+  var dateStr = y+'-'+mo+'-'+d;
+
+  fetch('https://statsapi.mlb.com/api/v1/schedule?sportId=1&date='+dateStr+
+        '&hydrate=probablePitcher(note)&fields=dates,date,games,gamePk,status,abstractGameState,teams,away,home,team,abbreviation,probablePitcher,fullName')
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      liveScheduleGames = [];
+      if (data.dates && data.dates.length) {
+        data.dates[0].games.forEach(function(g) {
+          var awayAbbr = g.teams.away.team.abbreviation;
+          var homeAbbr = g.teams.home.team.abbreviation;
+          liveScheduleGames.push({
+            away: MLB_ABBREV_MAP[awayAbbr] || awayAbbr,
+            home: MLB_ABBREV_MAP[homeAbbr] || homeAbbr,
+            awayAbbr: awayAbbr,
+            homeAbbr: homeAbbr,
+            sp1: g.teams.away.probablePitcher ? g.teams.away.probablePitcher.fullName.split(' ').pop() : 'TBD',
+            sp2: g.teams.home.probablePitcher ? g.teams.home.probablePitcher.fullName.split(' ').pop() : 'TBD',
+            status: g.status.abstractGameState
+          });
+        });
+      }
+      if (callback) callback();
+    })
+    .catch(function() {
+      // If API fails, set to null so we fall back to SCHEDULE array
+      liveScheduleGames = null;
+      if (callback) callback();
+    });
+}
+
+// Check if a pick's game is actually scheduled today using live data
+function isGameScheduledToday(p) {
+  if (!liveScheduleGames) {
+    // Fall back to SCHEDULE array match
+    var days2=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    var months2=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var now=new Date();
+    var todayStr=days2[now.getDay()]+' '+months2[now.getMonth()]+' '+now.getDate();
+    return SCHEDULE.some(function(s){ return s.t1===p[0] && s.t2===p[1] && s.day===todayStr; });
+  }
+  return liveScheduleGames.some(function(g) {
+    return (g.away===p[0] || g.awayAbbr===p[0]) &&
+           (g.home===p[1] || g.homeAbbr===p[1]);
+  });
+}
+
+
+function getBPFatigueScore(teamName) {
+  var f = bpFatigue[teamName];
+  if (!f) return 0;
+  return f.score || 0;
+}
+
+// Fatigue adj for computeAdjConf: RL picks penalized when either bullpen is gassed
+function bpFatigueAdj(p) {
+  if (p[9] !== 'RL' && p[9] !== 'ML') return 0;
+  var awayFatigue = getBPFatigueScore(p[0]);
+  var homeFatigue = getBPFatigueScore(p[1]);
+  var pickHome = p[8].indexOf(p[1]) >= 0 || p[8].split(' ')[0] === p[1].split(' ')[0];
+  // If the team we're picking on has a tired bullpen, penalize
+  var ourTeamFatigue = pickHome ? homeFatigue : awayFatigue;
+  if (ourTeamFatigue >= 7) return -5;   // exhausted: 100+ pitches last 2 days
+  if (ourTeamFatigue >= 5) return -3;   // tired: heavy use last 2 days
+  if (ourTeamFatigue >= 3) return -1;   // moderate use
+  return 0;
+}
+
+// RLM adj: reverse line movement is a sharp signal
+function rlmAdj(p) {
+  var key = p[0] + '|' + p[1];
+  var rlm = rlmData[key];
+  if (!rlm) return 0;
+  var pickHome = p[8].indexOf(p[1]) >= 0 || p[8].split(' ')[0] === p[1].split(' ')[0];
+  // signal: 'home' means line moved toward home team (regardless of public %)
+  if (rlm.signal === 'home' && pickHome && rlm.isReverse) return 4;
+  if (rlm.signal === 'away' && !pickHome && rlm.isReverse) return 4;
+  if (rlm.signal === 'home' && !pickHome && rlm.isReverse) return -4;
+  if (rlm.signal === 'away' && pickHome && rlm.isReverse) return -4;
+  // Normal movement with pick: mild confirmation
+  if (rlm.signal === 'home' && pickHome) return 2;
+  if (rlm.signal === 'away' && !pickHome) return 2;
+  return 0;
+}
+
+// ── Fetch Bullpen Fatigue from MLB Stats API ──
+function fetchBullpenFatigue(callback) {
+  var now = new Date();
+  var teams = SCHEDULE.filter(function(g){
+    var d2=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    var m2=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var todayStr=d2[now.getDay()]+' '+m2[now.getMonth()]+' '+now.getDate();
+    return g.day === todayStr;
+  }).reduce(function(acc,g){
+    if(acc.indexOf(g.t1)<0) acc.push(g.t1);
+    if(acc.indexOf(g.t2)<0) acc.push(g.t2);
+    return acc;
+  },[]);
+
+  if (!teams.length) { if(callback) callback(); return; }
+
+  var done = 0, total = teams.length;
+  var results = {};
+
+  function finish(team, pitches1, pitches2, pitches3) {
+    // Score: weighted sum of recent bullpen pitches (yesterday counts most)
+    var score = Math.min(10, Math.round(
+      (pitches1 * 0.6 + pitches2 * 0.3 + pitches3 * 0.1) / 12
+    ));
+    results[team] = { pitches1:pitches1, pitches2:pitches2, pitches3:pitches3, score:score };
+    done++;
+    if (done === total) {
+      bpFatigue = results;
+      if (callback) callback();
+    }
+  }
+
+  teams.forEach(function(team) {
+    var tid = REAL_TEAM_IDS[team];
+    if (!tid) { finish(team, 0, 0, 0); return; }
+
+    // Get last 5 games for this team
+    var today = now.toISOString().split('T')[0];
+    var d5 = new Date(now - 5*86400000).toISOString().split('T')[0];
+    var url = 'https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId='+tid+
+              '&startDate='+d5+'&endDate='+today+'&hydrate=linescore(matchup,runners),decisions&fields=dates,date,games,gamePk,status,abstractGameState,teams,home,away,teamId';
+
+    fetch(url)
+      .then(function(r){ return r.json(); })
+      .then(function(data) {
+        var gamePks = [];
+        if (data.dates) {
+          data.dates.forEach(function(d){
+            d.games.forEach(function(g){
+              if (g.status && g.status.abstractGameState === 'Final') {
+                gamePks.push({ pk: g.gamePk, date: d.date });
+              }
+            });
+          });
+        }
+        // Sort by date desc, take last 3
+        gamePks.sort(function(a,b){ return b.date > a.date ? 1 : -1; });
+        var recent = gamePks.slice(-3);
+
+        if (!recent.length) { finish(team, 0, 0, 0); return; }
+
+        // Fetch boxscores for each to get bullpen pitch counts
+        var boxDone = 0, pitchesByDay = [0,0,0];
+        recent.forEach(function(gm, gi) {
+          fetch('https://statsapi.mlb.com/api/v1/game/'+gm.pk+'/boxscore')
+            .then(function(r){ return r.json(); })
+            .then(function(box) {
+              // Find which side is our team
+              var side = null;
+              if (box.teams) {
+                if (box.teams.home && box.teams.home.team && box.teams.home.team.id === tid) side = 'home';
+                if (box.teams.away && box.teams.away.team && box.teams.away.team.id === tid) side = 'away';
+              }
+              var pitches = 0;
+              if (side && box.teams[side] && box.teams[side].pitchers) {
+                // Sum bullpen pitchers only (not starter = index 0)
+                box.teams[side].pitchers.slice(1).forEach(function(pid) {
+                  var pstats = box.teams[side].players && box.teams[side].players['ID'+pid];
+                  if (pstats && pstats.stats && pstats.stats.pitching) {
+                    pitches += (pstats.stats.pitching.pitchesThrown || 0);
+                  }
+                });
+              }
+              // gi=0 is oldest, gi=recent.length-1 is yesterday
+              var dayIdx = recent.length - 1 - gi; // 0=yesterday, 1=2dago, 2=3dago
+              if (dayIdx < 3) pitchesByDay[dayIdx] = pitches;
+              boxDone++;
+              if (boxDone === recent.length) {
+                finish(team, pitchesByDay[0], pitchesByDay[1], pitchesByDay[2]);
+              }
+            })
+            .catch(function(){ boxDone++; if(boxDone===recent.length) finish(team,0,0,0); });
+        });
+      })
+      .catch(function(){ finish(team, 0, 0, 0); });
+  });
+}
+
+// ── Process Odds API Data for RLM ──
+// Takes raw odds API response and our PICKS opening lines, computes RLM signal
+function processOddsForRLM(oddsData) {
+  liveOddsData = {};
+  rlmData = {};
+
+  oddsData.forEach(function(game) {
+    // Match game to our PICKS by team name
+    var awayName = '', homeName = '';
+    // Odds API uses short names — map back to our names
+    var nameMap = {
+      'New York Yankees':'Yankees','Boston Red Sox':'Red Sox','Tampa Bay Rays':'Rays',
+      'Toronto Blue Jays':'Blue Jays','Baltimore Orioles':'Orioles',
+      'Cleveland Guardians':'Guardians','Chicago White Sox':'White Sox',
+      'Detroit Tigers':'Tigers','Kansas City Royals':'Royals','Minnesota Twins':'Twins',
+      'Houston Astros':'Astros','Texas Rangers':'Rangers','Seattle Mariners':'Mariners',
+      'Los Angeles Angels':'Angels','Athletics':'Athletics','Oakland Athletics':'Athletics',
+      'New York Mets':'Mets','Philadelphia Phillies':'Phillies','Atlanta Braves':'Braves',
+      'Miami Marlins':'Marlins','Washington Nationals':'Nationals',
+      'Chicago Cubs':'Cubs','St. Louis Cardinals':'Cardinals','Milwaukee Brewers':'Brewers',
+      'Cincinnati Reds':'Reds','Pittsburgh Pirates':'Pirates',
+      'Los Angeles Dodgers':'Dodgers','San Diego Padres':'Padres',
+      'San Francisco Giants':'Giants','Colorado Rockies':'Rockies','Arizona Diamondbacks':'Diamondbacks'
+    };
+    awayName = nameMap[game.away_team] || game.away_team;
+    homeName = nameMap[game.home_team] || game.home_team;
+    var key = awayName + '|' + homeName;
+    liveOddsData[key] = game;
+
+    // Find our pick for this game
+    var ourPick = null;
+    PICKS.forEach(function(p){
+      if (p[0]===awayName && p[1]===homeName) ourPick = p;
+    });
+    if (!ourPick) return;
+
+    // Get best bookmaker's current spread/ML
+    var currHomeML = null, currAwayML = null, currSpread = null;
+    game.bookmakers && game.bookmakers.forEach(function(bk){
+      if (bk.key === 'draftkings' || bk.key === 'fanduel' || bk.key === 'betmgm') {
+        bk.markets && bk.markets.forEach(function(mkt){
+          if (mkt.key === 'h2h') {
+            mkt.outcomes.forEach(function(o){
+              if (o.name === game.home_team) currHomeML = o.price;
+              if (o.name === game.away_team) currAwayML = o.price;
+            });
+          }
+          if (mkt.key === 'spreads') {
+            mkt.outcomes.forEach(function(o){
+              if (o.name === game.home_team) currSpread = o.point;
+            });
+          }
+        });
+      }
+    });
+
+    if (!currHomeML || !currAwayML) return;
+
+    // Compare to our recorded opening lines (from PICKS array)
+    var openHomeML = ourPick[5]; // homeML
+    var openAwayML = ourPick[4]; // awayML
+
+    // Convert to implied probability to measure movement
+    function toProb(ml) {
+      return ml < 0 ? (-ml)/(-ml+100) : 100/(ml+100);
+    }
+    var openHomeProb = toProb(openHomeML);
+    var currHomeProb = toProb(currHomeML);
+    var delta = currHomeProb - openHomeProb; // positive = line moved toward home
+
+    // RLM signal: need public betting % to confirm. Without that API,
+    // we flag significant line movement (>3% prob shift) as potential sharp
+    var signal = Math.abs(delta) > 0.03 ? (delta > 0 ? 'home' : 'away') : 'none';
+
+    // "Reverse" = line moved significantly (sharp indicator even without public %)
+    // True RLM requires public %, but large moves on low-volume early games = sharp
+    var isReverse = Math.abs(delta) > 0.04; // 4%+ prob shift = sharp indicator
+
+    rlmData[key] = {
+      signal: signal,
+      delta: Math.round(delta * 100 * 10) / 10, // in percentage points
+      currHomeML: currHomeML,
+      currAwayML: currAwayML,
+      isReverse: isReverse,
+      openHomeML: openHomeML,
+      openAwayML: openAwayML
+    };
+  });
+}
+
 
 function loadBakedPitcherStats() {
   var baked = BAKED_LIVE_SP;
@@ -1562,9 +1941,9 @@ function computeAdjConf(p, base) {
   if (p[9] === 'ML' || p[9] === 'RL') adj += underdogValueAdj(p);
   // UNDER bias — empirical edge in early season
   if (p[9] === 'UNDER') adj += 2;
-  // Sharp money signal
-  if (p[13] === 'sharp') adj += 3;
-  if (p[13] === 'against') adj -= 3;
+  // ── LIVE SIGNALS (auto-populated when fetched) ──
+  adj += bpFatigueAdj(p);   // bullpen fatigue: -5 to 0
+  adj += rlmAdj(p);          // reverse line movement: -4 to +4
   return Math.max(50, Math.min(78, Math.round(adj)));
 }
 
@@ -1678,14 +2057,25 @@ function selectWeek(idx) {
 function setupPills() {
   var cont = document.getElementById('sched-pills');
   if (!cont) return;
-  var days = [];
-  SCHEDULE.forEach(function(g) {
-    if (days.indexOf(g.day) < 0) days.push(g.day);
-  });
-  cont.innerHTML = days.map(function(d,i){
-    return '<button class="rp'+(i===0?' on':'')+'" onclick="selectSchedDay(this,\''+d+'\')">'+d+'</button>';
+  var now=new Date();
+  var days2=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  var months2=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var todayStr=days2[now.getDay()]+' '+months2[now.getMonth()]+' '+now.getDate();
+  var allDays=[];
+  SCHEDULE.forEach(function(g){if(allDays.indexOf(g.day)<0)allDays.push(g.day);});
+  // Sort using WEEKS order
+  var ordered=[];
+  WEEKS.forEach(function(w){w.days.forEach(function(d){if(allDays.indexOf(d)>=0&&ordered.indexOf(d)<0)ordered.push(d);});});
+  allDays.forEach(function(d){if(ordered.indexOf(d)<0)ordered.push(d);});
+  // Only show today + future
+  var todayIdx=ordered.indexOf(todayStr);
+  var futureDays=todayIdx>=0?ordered.slice(todayIdx):ordered;
+  var defaultDay=futureDays.length?futureDays[0]:ordered[ordered.length-1];
+  cont.innerHTML=futureDays.map(function(d){
+    var label=d===todayStr?'Today ('+d.replace(/\w+ /,'')+')':d.replace(/\w+ /,'');
+    return '<button class="rp'+(d===defaultDay?' on':'')+'" onclick="selectSchedDay(this,\''+d+'\')">'+label+'</button>';
   }).join('');
-  if (days.length) renderSchedDay(days[0]);
+  if(defaultDay)renderSchedDay(defaultDay);
 }
 
 var _schedDay = null;
@@ -1756,7 +2146,14 @@ function renderToday() {
   var pct=total>0?Math.round(W/total*100)+'%':'—';
   var pctCol=total>0?(W/total>=0.55?'var(--gn)':W/total<0.45?'var(--rd)':'var(--gd)'):'var(--mu)';
 
-  var todayPicks = PICKS.filter(function(p){ return p[11]!=='SKIP' && p[15]===todayStr && !getPickResult(p); });
+  var todayPicks = PICKS.filter(function(p){
+    if (p[11]==='SKIP') return false;
+    if (p[15]!==todayStr) return false;
+    if (getPickResult(p)) return false;
+    // Validate against live schedule — won't show picks for games not actually today
+    if (!isGameScheduledToday(p)) return false;
+    return true;
+  });
 
   function toMins(t){var m=(t||'').match(/(\d+):(\d+)([ap])/i);if(!m)return 999;var h=parseInt(m[1]),mn=parseInt(m[2]),ap=m[3].toLowerCase();h=ap==='p'&&h!==12?h+12:ap==='a'&&h===12?0:h;return h*60+mn;}
   todayPicks.sort(function(a,b){
@@ -1817,6 +2214,23 @@ function renderToday() {
       '</div>'+
       '<div class="ps"><span class="psi sp">'+p[2]+' vs '+p[3]+'</span>'+
       '<span class="psi">xFIP <b style="color:'+(parseFloat(xfipEdge)>0.2?'var(--gn)':parseFloat(xfipEdge)<-0.2?'var(--rd)':'var(--mu)')+'">'+(parseFloat(xfipEdge)>0?'+':'')+xfipEdge+'</b></span>'+
+      (function(){
+        var badges='';
+        var key=p[0]+'|'+p[1];
+        // Bullpen fatigue badges
+        var awF=getBPFatigueScore(p[0]),hmF=getBPFatigueScore(p[1]);
+        if(awF>=5) badges+='<span style="font-family:IBM Plex Mono,monospace;font-size:6px;padding:1px 5px;border-radius:2px;background:rgba(217,79,79,.12);border:1px solid rgba(217,79,79,.3);color:var(--rd);margin-left:4px">🔥 '+p[0].split(' ').pop()+' BP tired</span>';
+        if(hmF>=5) badges+='<span style="font-family:IBM Plex Mono,monospace;font-size:6px;padding:1px 5px;border-radius:2px;background:rgba(217,79,79,.12);border:1px solid rgba(217,79,79,.3);color:var(--rd);margin-left:4px">🔥 '+p[1].split(' ').pop()+' BP tired</span>';
+        // RLM badge
+        var rlm=rlmData[key];
+        if(rlm&&rlm.isReverse){
+          var adj=rlmAdj(p);
+          var rlmCol=adj>0?'var(--gn)':'var(--rd)';
+          var rlmTxt=adj>0?'⚡ RLM confirms':'⚠ RLM fades';
+          badges+='<span style="font-family:IBM Plex Mono,monospace;font-size:6px;padding:1px 5px;border-radius:2px;background:rgba(155,127,212,.12);border:1px solid rgba(155,127,212,.3);color:'+rlmCol+';margin-left:4px">'+rlmTxt+' ('+rlm.delta+'%)</span>';
+        }
+        return badges;
+      })()+
       '</div></div>'+
       '<div style="display:grid;grid-template-columns:repeat('+picks.length+',1fr);border-top:1px solid var(--bd)">'+
       picks.map(function(px,i){
@@ -2447,12 +2861,26 @@ function fetchLiveOdds() {
   var key = document.getElementById('oddsKey');
   var status = document.getElementById('oddsStatus');
   if (!key || !key.value) {if(status){status.textContent='Enter a valid API key first';status.className='lob-status err';}return;}
-  if (status) {status.textContent='Fetching odds...';status.className='lob-status loading';}
-  fetch('https://api.the-odds-api.com/v4/sports/baseball_mlb/odds?apiKey='+key.value+'&regions=us&markets=h2h,spreads,totals')
+  if (status) {status.textContent='Fetching odds + line movement...';status.className='lob-status loading';}
+  // Save key to localStorage so it persists across sessions
+  try { localStorage.setItem('oddsApiKey', key.value); } catch(e) {}
+  window._oddsApiKey = key.value;
+  fetch('https://api.the-odds-api.com/v4/sports/baseball_mlb/odds?apiKey='+key.value+'&regions=us&markets=h2h,spreads,totals&oddsFormat=american')
   .then(function(r){return r.json();})
   .then(function(data){
-    if (!Array.isArray(data)) {if(status){status.textContent='Invalid key or no data';status.className='lob-status err';}return;}
-    if (status) {status.textContent='Loaded '+data.length+' games from The Odds API';status.className='lob-status ok';}
+    if (!Array.isArray(data)) {
+      if(status){status.textContent='Invalid key or no data';status.className='lob-status err';}
+      return;
+    }
+    // Process for RLM
+    processOddsForRLM(data);
+    var rlmCount = Object.keys(rlmData).filter(function(k){return rlmData[k].isReverse;}).length;
+    if (status) {
+      status.textContent = 'Loaded '+data.length+' games · '+rlmCount+' RLM signals detected · Confidence scores updated';
+      status.className = 'lob-status ok';
+    }
+    // Refresh today tab to show updated confidence + RLM badges
+    renderToday();
   })
   .catch(function(){if(status){status.textContent='Error fetching odds';status.className='lob-status err';}});
 }
@@ -2480,7 +2908,7 @@ function go(id) {
   if (id === 'sched')    renderSched();
   if (id === 'tracker')  renderTracker();
   if (id === 'screen')   renderModelScreen();
-  if (id === 'sharp')    renderSharp();
+  if (id === 'sharp')    // renderSharp removed;
   if (id === 'teams')    renderTeams();
   if (id === 'pitchers') renderPitcherDB();
   if (id === 'model')    renderWeights();
@@ -2488,8 +2916,24 @@ function go(id) {
 
 // ══════════ INIT ══════════
 window.addEventListener('load', function() {
+  // Restore saved Odds API key from localStorage
+  var savedKey = localStorage.getItem('oddsApiKey');
+  if (savedKey) {
+    var inp = document.getElementById('oddsKey');
+    if (inp) { inp.value = savedKey; }
+    var st = document.getElementById('oddsStatus');
+    if (st) { st.textContent = 'Key loaded from saved session — hit Fetch to sync'; st.className = 'lob-status ok'; }
+  }
   setupWeekPills();
   loadBakedPitcherStats();
+  // Fetch live schedule first (validates which games are real today)
+  // Then fetch BP fatigue — both refresh today tab when done
+  fetchLiveSchedule(function() {
+    renderToday(); // immediate render with live schedule validation
+    fetchBullpenFatigue(function() {
+      renderToday(); // re-render with fatigue scores added
+    });
+  });
   renderTicker();
   renderToday();
   setupTeams();
