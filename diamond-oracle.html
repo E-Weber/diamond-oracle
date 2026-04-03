@@ -598,6 +598,7 @@ footer{background:var(--sf);border-top:1px solid var(--bd);padding:13px 28px;dis
 <!-- TODAY TAB -->
 <div class="tab on" id="tab-today">
   <div id="today-header"></div>
+  <div id="today-filter"></div>
   <div id="today-best"></div>
   <div id="today-plays"></div>
 </div>
@@ -1125,18 +1126,22 @@ const PICKS=[
   // ── WED APR 2+ ──
   ["Yankees","Orioles","Rodon","Burnes",-120,+100,-1.5,8.0,"OVER 8.0","OVER",60,"PLAY","Rodon vs Burnes is quality vs quality — but both have health flags. Camden Yards (pf 1.00) neutral. Yankees wRC+ 118, Orioles 114. Rodon IP6 only 65% — expect bullpen early. Orioles bullpen dependence low (6/10) — they have depth. Total 8.0 feels low for two powerful offenses when both aces may not go deep. PLAY OVER.","","C. Rodon health flag","Wed Apr 1","AL"],
   // ── THU APR 2 ──
-  ["Dodgers","Rockies","Ohtani","Freeland","SKIP",+140,-165,-1.5,11.5,"OVER 11.5","OVER",72,"★ BEST","🏔 COORS FIELD: Park factor 1.28 runs, HR 1.38. Ohtani pitching for first time post-TJ — expect 5 IP max with high pitch counts. Freeland xFIP 4.24 — inflated to 5+ at Coors. Dodgers wRC+ 128, Rockies 108. Both bullpens will be active by inning 5. Model projects 14.8 runs — 3.3 runs OVER the number. Biggest O/U edge of the week. ★","sharp","","Fri Apr 3","NL"],
   ["Brewers","Reds","Peralta","Greene",+110,-130,-1.5,8.5,"Reds -1.5","RL",60,"LEAN","Great American Ball Park (pf 1.02, HR 1.05). Greene xFIP 3.64 vs Brewers wRC+ 101 (below average). Reds offense improved (wRC+ 108). Peralta's walk rate (2.8 BB/9) could be exploited. Model: Reds by 0.9 runs. Lean for home team, not strong conviction without confirmed sharp action.","","","Sat Apr 4","NL"],
-];
 
+  // ── FRI APR 3 ──
+  ["Orioles","Pirates","Rogers","Skenes",-110,-110,-1.5,7.5,"Pirates ML","ML",65,"★ BEST","Skenes G2 at PNC Park — G1 was error-driven chaos (0.2 IP), the elite stuff is intact (career 1.96 ERA, 2.42 FIP). Rogers solid (xFIP 3.48, good debut for BAL) but talent gap is enormous. Both models agree. ★","","","Fri Apr 3","NL"],
+  ["Phillies","Rockies","Sanchez","Freeland",-200,+168,-1.5,11.5,"OVER 11.5","OVER",63,"PLAY","Coors Field (pf 1.25, HR 1.30) + Phillies wRC+ 128. Sanchez sharp (2.08 ERA through 2 starts) vs Freeland struggling (5.40 ERA). Model projects 12.8 runs. OVER at Coors with elite offense.","","","Fri Apr 3","NL"],
+  ["Cubs","Guardians","Imanaga","Bibee",-108,+100,-1.5,8.0,"UNDER 8.0","UNDER",62,"PLAY","Imanaga (xFIP 3.68, elite walk rate, 0 ER debut) vs Bibee (xFIP 3.66, command-first, 182 IP last year). Progressive Field (pf 0.97). Two ground-ball heavy arms. Model projects 7.3 runs.","","","Fri Apr 3","NL"],
+  ["Padres","Red Sox","King","Crochet",-105,+105,-1.5,7.5,"Red Sox ML","ML",62,"PLAY","Crochet G2 at Fenway — dominant debut (6 IP 0 ER 8K vs Astros). King outstanding (0.75 ERA through 2 starts, xFIP 3.45) but Crochet xFIP 3.12 edge is real. Even money with positive EV.","","","Fri Apr 3","AL"],
+  ["Dodgers","Rockies","Ohtani","Freeland","SKIP",11.5,"OVER",14.8,72,"★ BEST","Coors Field (pf 1.28). Ohtani limited IP, Freeland inflated. Both bullpens exposed early.","Thu Apr 2"],
+];
 // ══════════ TOTALS SPECIFIC PICKS ══════════
 // [away, home, awaySP, homeSP, total, pick, model_proj, confidence, tier, analysis, date]
 const TOTALS=[
-  ["Rockies","Marlins","Freeland","Alcantara",7.0,"UNDER",6.2,63,"PLAY","loanDepot Park (pf 0.94) + Alcantara on the bump. Both aces, pitcher-friendly park. Clean UNDER.","Fri Mar 27"],
-  ["Guardians","Mariners","Cecconi","Woo",7.0,"UNDER",5.9,62,"PLAY","T-Mobile Park (pf 0.94) + Woo dominant at home. Cecconi vs Woo is an excellent UNDER matchup.","Sat Mar 28"],
+  ["Rockies","Marlins","Freeland","Alcantara",7.0,"UNDER",6.2,63,"PLAY","loanDepot Park (pf 0.94) + Alcantara on the bump. Both aces, pitcher-friendly park.","Sun Mar 29"],
+  ["Guardians","Mariners","Cecconi","Woo",7.0,"UNDER",5.9,62,"PLAY","T-Mobile Park (pf 0.94) + Woo dominant at home. Cecconi vs Woo is an excellent UNDER spot.","Sun Mar 29"],
   ["Astros","Rangers","Valdez","Eovaldi",8.5,"UNDER",7.4,61,"PLAY","Globe Life neutral park. Both bullpens elite. Ground ball-heavy matchup.","Sun Mar 29"],
   ["Padres","Giants","Cease","Webb",7.0,"UNDER",5.9,65,"PLAY","Oracle Park (pf 0.90). Best pitcher's park in MLB amplifies both pitchers' edges.","Mon Mar 30"],
-  ["Dodgers","Rockies","Ohtani","Freeland","SKIP",11.5,"OVER",14.8,72,"★ BEST","Coors Field (pf 1.28). Ohtani limited IP, Freeland inflated. Both bullpens exposed early.","Thu Apr 2"],
 ];
 
 
@@ -1169,33 +1174,29 @@ const CLV_DATA = {
 
 // Calculate CLV for a pick
 function calcCLV(p) {
+  // CLV (Closing Line Value) = how much better (or worse) our odds were
+  // vs what the line closed at.
+  // Positive CLV = we got a better price than closing → long-run edge signal.
   var key = p[0]+'|'+p[1]+'|'+p[15]+'|'+p[9];
-  var d = CLV_DATA[key];
+  var d   = (typeof CLV_DATA !== 'undefined') ? CLV_DATA[key] : null;
   if (!d) return null;
-  var open = d.open, close = d.close;
-  // For ML/RL: positive = we got a better number
-  // For OVER/UNDER: positive = line moved in our direction
-  var clv = 0;
+  var open  = d.open;
+  var close = d.close;
+
   if (p[9] === 'OVER') {
-    clv = close - open; // positive = line went up (our under of X is now against X+0.5) — actually bad for over
-    clv = open - close; // actually: if open=8.5 OVER and close=9.0, we got better number — positive
-    clv = open - close; // over: if line goes up after we bet over, we got value (positive)
+    // OVER: if line went up after we bet (e.g. 8.5 → 9.0), we got better number → positive
+    return parseFloat((open - close).toFixed(1));
   } else if (p[9] === 'UNDER') {
-    clv = close - open; // under: if line goes down after we bet under, we got value (positive)
+    // UNDER: if line went down after we bet (e.g. 9.0 → 8.5), we got better number → positive
+    return parseFloat((close - open).toFixed(1));
   } else {
-    // ML/RL: convert to implied prob and compare
-    function toProb(ml) {
-      if (ml < 0) return (-ml) / (-ml + 100);
-      return 100 / (ml + 100);
-    }
-    // For favorite (negative ML): higher absolute number = better
-    // For underdog (positive ML): lower number = better
-    var openProb = toProb(open);
-    var closeProb = toProb(close);
-    clv = (openProb - closeProb) * 100; // positive = we got better than close
+    // ML/RL: compare implied probabilities
+    // Positive = we got a better-than-closing implied probability for our side
+    var openProb  = americanToImplied(open);
+    var closeProb = americanToImplied(close);
+    // For the side we bet: positive = we got a lower implied prob (better odds)
+    return parseFloat(((openProb - closeProb) * 100).toFixed(2));
   }
-  d.clv = parseFloat(clv.toFixed(1));
-  return d;
 }
 
 // ══════════ SHARP MONEY DATA ══════════
@@ -1321,6 +1322,24 @@ const SCHEDULE=[
   {day:"Tue Mar 31",t1:"Yankees",t2:"Mariners",tm:"9:40p",tv:"TBS",site:"T-Mobile Park, Seattle",sp1:"Schlittler",sp2:"Kirby",region:"AL East/West"},
   {day:"Tue Mar 31",t1:"Tigers",t2:"Diamondbacks",tm:"9:40p",tv:"mlbtv",site:"Chase Field, Phoenix",sp1:"Valdez",sp2:"Nelson",region:"AL/NL"},
   {day:"Tue Mar 31",t1:"Guardians",t2:"Dodgers",tm:"10:10p",tv:"mlbtv",site:"Dodger Stadium, Los Angeles",sp1:"Cantillo",sp2:"Ohtani",region:"NL/AL"},
+
+
+  // ── FRI APR 3 — 15 games ──
+  {day:"Fri Apr 3",t1:"Dodgers",   t2:"Nationals",    tm:"1:05p", tv:"mlbtv",site:"Nationals Park, Washington",    sp1:"Yamamoto",   sp2:"Cavalli",    region:"NL"},
+  {day:"Fri Apr 3",t1:"Cardinals", t2:"Tigers",        tm:"1:10p", tv:"mlbtv",site:"Comerica Park, Detroit",        sp1:"Liberatore", sp2:"Valdez",     region:"NL/AL"},
+  {day:"Fri Apr 3",t1:"Marlins",   t2:"Yankees",       tm:"1:35p", tv:"mlbtv",site:"Yankee Stadium, New York",      sp1:"Garrett",    sp2:"Fried",      region:"NL/AL"},
+  {day:"Fri Apr 3",t1:"Blue Jays", t2:"White Sox",     tm:"2:10p", tv:"mlbtv",site:"Guaranteed Rate Field, Chicago",sp1:"Cease",      sp2:"Burke",      region:"AL"},
+  {day:"Fri Apr 3",t1:"Padres",    t2:"Red Sox",       tm:"2:10p", tv:"mlbtv",site:"Fenway Park, Boston",           sp1:"King",       sp2:"Crochet",    region:"AL"},
+  {day:"Fri Apr 3",t1:"Reds",      t2:"Rangers",       tm:"4:05p", tv:"mlbtv",site:"Globe Life Field, Arlington",   sp1:"Burns",      sp2:"deGrom",     region:"NL/AL"},
+  {day:"Fri Apr 3",t1:"Cubs",      t2:"Guardians",     tm:"4:10p", tv:"mlbtv",site:"Progressive Field, Cleveland",  sp1:"Imanaga",    sp2:"Bibee",      region:"NL/AL"},
+  {day:"Fri Apr 3",t1:"Phillies",  t2:"Rockies",       tm:"4:10p", tv:"mlbtv",site:"Coors Field, Denver",           sp1:"Sanchez",    sp2:"Freeland",   region:"NL"},
+  {day:"Fri Apr 3",t1:"Rays",      t2:"Twins",         tm:"4:10p", tv:"mlbtv",site:"Target Field, Minneapolis",     sp1:"Rasmussen",  sp2:"Ryan",       region:"AL"},
+  {day:"Fri Apr 3",t1:"Orioles",   t2:"Pirates",       tm:"4:12p", tv:"mlbtv",site:"PNC Park, Pittsburgh",          sp1:"Rogers",     sp2:"Skenes",     region:"AL/NL"},
+  {day:"Fri Apr 3",t1:"Brewers",   t2:"Royals",        tm:"7:45p", tv:"mlbtv",site:"Kauffman Stadium, Kansas City", sp1:"Misiorowski",sp2:"Ragans",     region:"NL/AL"},
+  {day:"Fri Apr 3",t1:"Mariners",  t2:"Angels",        tm:"9:38p", tv:"mlbtv",site:"Angel Stadium, Anaheim",        sp1:"Woo",        sp2:"Soriano",    region:"AL"},
+  {day:"Fri Apr 3",t1:"Astros",    t2:"Athletics",     tm:"9:40p", tv:"mlbtv",site:"Oakland Coliseum",              sp1:"Brown",      sp2:"Severino",   region:"AL"},
+  {day:"Fri Apr 3",t1:"Braves",    t2:"Diamondbacks",  tm:"9:45p", tv:"mlbtv",site:"Chase Field, Phoenix",          sp1:"Lopez",      sp2:"Gallen",     region:"NL"},
+  {day:"Fri Apr 3",t1:"Mets",      t2:"Giants",        tm:"10:15p",tv:"mlbtv",site:"Oracle Park, San Francisco",    sp1:"Peralta",    sp2:"Webb",       region:"NL"},
 ];
 
 // ══════════ RESULTS ══════════
@@ -1424,7 +1443,11 @@ const RESULTS={
   "Giants|Padres|Wed Apr 1":           {as:1,  hs:7,  st:"final"},  // UNDER 7.0 ❌ LOSS (8 total)
   "Yankees|Mariners|Wed Apr 1":        {as:5,  hs:3,  st:"final"},  // Yankees won
   "Twins|Royals|Wed Apr 1":            {as:9,  hs:13, st:"final"},  // Royals won big
-  "Guardians|Dodgers|Wed Apr 1":       {as:4,  hs:1,  st:"final"},  // Dodgers -1.5 ❌ LOSS (CLE won)
+  "Guardians|Dodgers|Wed Apr 1":       {as:4,  hs:1,  st:"final"},
+  // ── THU APR 2 ──
+  "Twins|Royals|Thu Apr 2":            {as:5,  hs:1,  st:"final"},
+  "Braves|Diamondbacks|Thu Apr 2":     {as:17, hs:2,  st:"final"},
+  "Mets|Giants|Thu Apr 2":             {as:2,  hs:7,  st:"final"},
 };
 
 // ══════════ MODEL WEIGHTS ══════════
@@ -1465,10 +1488,10 @@ const BAKED_LIVE_SP = {
 // ══════════ WEEKS / DAYS ══════════
 const WEEKS = [
   {label:"Week 1: Mar 25-31",days:["Wed Mar 25","Thu Mar 26","Fri Mar 27","Sat Mar 28","Sun Mar 29","Mon Mar 30","Tue Mar 31"]},
-  {label:"Week 2: Apr 1-7",days:["Wed Apr 1","Thu Apr 2","Fri Apr 3","Sat Apr 4","Sun Apr 5","Mon Apr 6","Tue Apr 7"]},
+  {label:"Week 2: Apr 1-7",  days:["Wed Apr 1","Thu Apr 2","Fri Apr 3","Sat Apr 4","Sun Apr 5","Mon Apr 6","Tue Apr 7"]},
 ];
 
-var CURRENT_WEEK_IDX = 0;
+var CURRENT_WEEK_IDX = 1;
 var CURRENT_WEEK_DAYS = WEEKS[0].days;
 
 // ══════════ LIVE SP DATA ══════════
@@ -1505,6 +1528,8 @@ var REAL_TEAM_IDS = {
 // Pulls today's actual games from MLB Stats API (free, no key)
 // Used to validate picks — only show picks for games actually scheduled today
 var liveScheduleGames = null;
+var todayEvFilter = 'all'; // 'all' | 'ev' | 'strong'
+var todaySort    = 'ev';   // 'ev' | 'edge' | 'rec' | 'time'
 var liveScheduleByDate = {}; // keyed by "Thu Apr 2" → [games] // null = not loaded yet, [] = loaded (empty or games)
 
 var MLB_ABBREV_MAP = {
@@ -1741,7 +1766,8 @@ function fetchBullpenFatigue(callback) {
   var done = 0, total = teams.length;
   var results = {};
 
-  function finish(team, pitches1, pitches2, pitches3) {
+  
+function finish(team, pitches1, pitches2, pitches3) {
     // Score: weighted sum of recent bullpen pitches (yesterday counts most)
     var score = Math.min(10, Math.round(
       (pitches1 * 0.6 + pitches2 * 0.3 + pitches3 * 0.1) / 12
@@ -1883,7 +1909,8 @@ function processOddsForRLM(oddsData) {
     var openAwayML = ourPick[4]; // awayML
 
     // Convert to implied probability to measure movement
-    function toProb(ml) {
+    
+function toProb(ml) {
       return ml < 0 ? (-ml)/(-ml+100) : 100/(ml+100);
     }
     var openHomeProb = toProb(openHomeML);
@@ -2194,6 +2221,630 @@ function rlThresholdCheck(p, baseConf) {
   if (margin < 3.0) return Math.min(baseConf - 2,  62);
   return baseConf; // only 3.0+ gets full confidence on RL
 }
+
+// ══════════════════════════════════════════════════════
+// BETTING UTILITY LAYER
+// All functions are pure — input in, number out, no DOM.
+// ══════════════════════════════════════════════════════
+
+// Convert American odds to implied probability (0–1)
+// Formula:
+//   Negative odds (favorite): implied = |odds| / (|odds| + 100)
+//   Positive odds (underdog): implied = 100  / (odds  + 100)
+function americanToImplied(ml) {
+  ml = parseInt(ml);
+  if (isNaN(ml) || ml === 0) return 0.5;
+  if (ml < 0) return (-ml) / (-ml + 100);
+  return 100 / (ml + 100);
+}
+
+// Convert implied probability back to American odds (for display)
+function impliedToAmerican(prob) {
+  if (prob <= 0 || prob >= 1) return 'N/A';
+  if (prob >= 0.5) return Math.round(-prob / (1 - prob) * 100);
+  return Math.round((1 - prob) / prob * 100);
+}
+
+// Get the book odds for a specific pick
+// p[4]=awayML, p[5]=homeML, p[6]=runline(home), p[7]=total, p[9]=type, p[8]=pickText
+function getPickOdds(p) {
+  // Returns the book odds for the specific side we picked.
+  // For ML: uses stored awayML / homeML (actual book odds).
+  // For RL/totals: stored odds are approximated as -110 (standard vig).
+  //   These are marked as 'estimated' in pickToBetEntry — real odds can be
+  //   updated when Odds API data is fetched.
+  var type     = p[9];
+  var pickText = (p[8] || '').toLowerCase();
+  var awayML   = parseInt(p[4]);
+  var homeML   = parseInt(p[5]);
+
+  if (type === 'ML') {
+    // Determine which team we picked
+    var homePart = p[1].toLowerCase();
+    var homeWord = p[1].split(' ').pop().toLowerCase();
+    var pickHome = pickText.indexOf(homePart) >= 0 || pickText.indexOf(homeWord) >= 0;
+    return pickHome ? homeML : awayML;
+  }
+
+  if (type === 'RL') {
+    // Standard RL juice is -110; heavy favorites can be -115 to -120.
+    // We use ML as a proxy: if fav ML < -180, RL is ~-120; otherwise -110.
+    var homeFav = homeML < awayML;  // home is favorite if their ML is more negative
+    if (pickText.indexOf(p[1].split(' ').pop().toLowerCase()) >= 0 || pickText.indexOf(p[1].toLowerCase()) >= 0) {
+      return homeML < -180 ? -115 : -110;  // home side
+    } else {
+      return awayML < -180 ? -115 : -110;  // away side
+    }
+  }
+
+  // OVER / UNDER — standard -110
+  return -110;
+}
+
+// Calculate edge: model probability minus implied probability (in %)
+// Edge = modelProb - impliedProb
+// Positive edge = model thinks this side is more likely than the book does
+function calcEdge(modelPct, odds) {
+  var modelProb    = modelPct / 100;
+  var impliedProb  = americanToImplied(odds);
+  var edge         = (modelProb - impliedProb) * 100; // in percentage points
+  return parseFloat(edge.toFixed(1));
+}
+
+// Calculate EV per 1 unit risked
+// For American odds:
+//   Win amount per unit:
+//     Negative odds: 100/|odds|   (bet 1 to win 100/110 = 0.909u at -110)
+//     Positive odds: odds/100     (bet 1 to win 150/100 = 1.5u   at +150)
+// EV = (modelProb × winAmt) − ((1 − modelProb) × 1)
+function calcEV(modelPct, odds) {
+  var modelProb = modelPct / 100;
+  odds = parseInt(odds);
+  var winAmt = odds < 0 ? (100 / Math.abs(odds)) : (odds / 100);
+  var ev = (modelProb * winAmt) - ((1 - modelProb) * 1);
+  return parseFloat(ev.toFixed(3));
+}
+
+// Recommendation based on edge thresholds
+// Returns: { label, units, color }
+function getRecommendation(edge, ev) {
+  // Spec — all tiers require positive EV, not just edge alone.
+  // Strong Bet : edge >= 5  AND EV > 0.05
+  // Bet        : edge >= 3  AND EV > 0
+  // Lean       : edge >= 1  AND EV > 0   ← was missing EV check
+  // Pass       : anything else
+  if (ev === undefined || ev === null) ev = 0;
+  if (edge >= 5 && ev > 0.05) return { label:'STRONG BET', units:1.5, color:'#F2B832' };
+  if (edge >= 3 && ev > 0   ) return { label:'BET',         units:1.0, color:'#3CB878' };
+  if (edge >= 1 && ev > 0   ) return { label:'LEAN',         units:0.5, color:'#9B7FD4' };
+  return                              { label:'PASS',         units:0,   color:'#6B7280' };
+}
+
+// Full betting summary for one pick — returns object with all computed values
+// ── Display helpers (module-level — available everywhere) ──
+// profitCol: green if positive, red if negative, muted if zero/null
+function profitCol(n) {
+  if (n === null || n === undefined) return 'var(--mu)';
+  return n > 0 ? 'var(--gn)' : n < 0 ? 'var(--rd)' : 'var(--mu)';
+}
+// fmt: format a number with + sign prefix and optional suffix
+function fmt(n, suffix) {
+  if (n === null || n === undefined) return '—';
+  return (n > 0 ? '+' : '') + n + (suffix || '');
+}
+
+
+function getBettingLine(p) {
+  var adjConf = computeAdjConf(p, p[10]);
+  var odds    = getPickOdds(p);
+  var implied = parseFloat((americanToImplied(odds) * 100).toFixed(1));
+  var edge    = calcEdge(adjConf, odds);
+  var ev      = calcEV(adjConf, odds);
+  var rec     = getRecommendation(edge, ev);
+  return { modelPct:adjConf, odds:odds, implied:implied, edge:edge, ev:ev,
+           rec:rec.label, units:rec.units, color:rec.color };
+}
+// ══════════════════════════════════════════════════════
+// BET LOG ACCOUNTING LAYER
+// Responsibilities: build entries, compute P&L, store/load
+// These are pure functions — no DOM access.
+// ══════════════════════════════════════════════════════
+
+// Convert a model pick + result into a standardized bet-log entry.
+// This is the single source of truth for what a "logged bet" looks like.
+// Returns null if the pick has no result yet.
+function pickToBetEntry(p) {
+  var r = getPickResult(p);
+  if (!r) return null;  // not graded
+
+  var bl     = getBettingLine(p);  // model prob, odds, edge, EV, rec, units
+  var stake  = bl.units;           // recommended stake (0 = PASS)
+  var odds   = bl.odds;
+
+  // Compute actual units P&L
+  // Push: total exactly hits the line → 0 profit, 0 loss
+  var unitsGL = 0;
+  if (r.outcome === 'W') {
+    // Profit = stake × (odds > 0 ? odds/100 : 100/|odds|)
+    var winAmt = odds < 0 ? (100 / Math.abs(odds)) : (odds / 100);
+    unitsGL = parseFloat((stake * winAmt).toFixed(3));
+  } else if (r.outcome === 'P') {
+    unitsGL = 0; // push — no profit, no loss, stake returned
+  } else {
+    unitsGL = -stake; // loss
+  }
+
+  // Mark whether odds are real (ML picks) or estimated (RL/totals use -110 proxy)
+  var oddsSource = (p[9]==='ML') ? 'actual' : 'estimated';
+
+  return {
+    // identity
+    date     : p[15],
+    away     : p[0],
+    home     : p[1],
+    matchup  : p[0] + ' @ ' + p[1],
+    market   : p[9],        // ML / RL / OVER / UNDER
+    pick     : p[8],        // e.g. "Braves ML" or "UNDER 7.0"
+    tier     : p[11],       // ★ BEST / PLAY / LEAN
+    // model output
+    modelPct : bl.modelPct,
+    // book side
+    odds     : odds,
+    oddsSource: oddsSource, // 'actual' or 'estimated'
+    implied  : bl.implied,
+    // edge & EV
+    edge     : bl.edge,
+    ev       : bl.ev,
+    rec      : bl.rec,
+    // staking
+    stake    : stake,       // units staked
+    // result
+    outcome  : r.outcome,   // 'W' / 'L' / 'P'
+    score    : r.score || '',
+    unitsGL  : unitsGL,     // units gained (+) or lost (-)
+    // CLV — filled in separately if closing odds available
+    closingOdds : null,
+    clv         : null,
+    notes       : '',
+    // ── A/B model comparison ──
+    modelA_prob : bl.modelPct,                  // Model A probability (%)
+    modelB_prob : computeModelB(p).probPct,     // Model B probability (%)
+    // metadata
+    source : 'model',
+    id     : p[0]+'|'+p[1]+'|'+p[15]+'|'+p[9]
+  };
+}
+
+// Build the full graded bet log from PICKS + RESULTS.
+// Filters: market array e.g. ['ML','RL','UNDER','OVER'] or null for all
+// tiers: ['★ BEST','PLAY','LEAN'] or null for all
+function buildBetLog(marketFilter, tierFilter) {
+  var entries = [];
+  PICKS.forEach(function(p) {
+    if (p[11] === 'SKIP') return;
+    if (marketFilter && marketFilter.indexOf(p[9]) < 0) return;
+    if (tierFilter   && tierFilter.indexOf(p[11]) < 0) return;
+    var e = pickToBetEntry(p);
+    if (e) entries.push(e);
+  });
+  // Newest first
+  entries.sort(function(a, b) {
+    return b.date > a.date ? 1 : b.date < a.date ? -1 : 0;
+  });
+  return entries;
+}
+
+// Compute accounting summary from an array of bet entries.
+// Returns all the stats a bettor actually cares about.
+function calcBetSummary(entries) {
+  var W = 0, L = 0, P = 0;
+  var totalRisked = 0, totalProfit = 0;
+  var clvSum = 0, clvCount = 0;
+  var edgeSum = 0, edgeCount = 0;
+  var evSum = 0, evCount = 0;
+
+  entries.forEach(function(e) {
+    if      (e.outcome === 'W') W++;
+    else if (e.outcome === 'L') L++;
+    else if (e.outcome === 'P') P++;
+
+    // Only count staked bets (stake > 0 means we acted on it)
+    if (e.stake > 0) {
+      totalRisked += e.stake;
+      totalProfit += e.unitsGL;
+    }
+
+    // Edge and EV averages — include all entries that have them
+    if (e.edge !== null && e.edge !== undefined) {
+      edgeSum += e.edge; edgeCount++;
+    }
+    if (e.ev !== null && e.ev !== undefined) {
+      evSum += e.ev; evCount++;
+    }
+
+    // CLV — only when closing data exists
+    if (e.clv !== null && e.clv !== undefined) {
+      clvSum += e.clv; clvCount++;
+    }
+  });
+
+  var total = W + L; // pushes excluded from win%
+  return {
+    W           : W,
+    L           : L,
+    P           : P,
+    total       : total,
+    totalBets   : W + L + P,
+    winPct      : total > 0 ? parseFloat((W / total * 100).toFixed(1)) : null,
+    // ROI = total profit / total amount risked  (true bettor ROI, not W-L / count)
+    totalRisked : parseFloat(totalRisked.toFixed(2)),
+    totalProfit : parseFloat(totalProfit.toFixed(2)),
+    roi         : totalRisked > 0
+                    ? parseFloat((totalProfit / totalRisked * 100).toFixed(1))
+                    : null,
+    // Averages
+    avgEdge : edgeCount > 0 ? parseFloat((edgeSum / edgeCount).toFixed(1)) : null,
+    avgEv   : evCount   > 0 ? parseFloat((evSum   / evCount  ).toFixed(3)) : null,
+    avgClv  : clvCount  > 0 ? parseFloat((clvSum  / clvCount ).toFixed(2)) : null
+  };
+}
+
+// ── localStorage bet log (for manual/custom bets added outside model picks) ──
+// Key in storage: 'do_manual_bets'
+// This is separate from model picks — model picks auto-derive above.
+function loadManualBets() {
+  try {
+    var raw = localStorage.getItem('do_manual_bets');
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+function saveManualBets(bets) {
+  try { localStorage.setItem('do_manual_bets', JSON.stringify(bets)); } catch(e) {}
+}
+
+// Add a manual bet entry (for bets outside the model picks array)
+// ── Manual Bet Schema ──
+// Creates a schema-valid bet entry for a manually logged bet.
+// Required: date, matchup, market, pick, odds, outcome
+// Optional: modelPct, stake, closingOdds, notes
+function createManualBetEntry(fields) {
+  var odds    = parseInt(fields.odds || -110);
+  var implied = parseFloat((americanToImplied(odds) * 100).toFixed(1));
+  var modelPct = fields.modelPct || null;
+  var edge    = modelPct ? calcEdge(modelPct, odds)  : null;
+  var ev      = modelPct ? calcEV(modelPct, odds)    : null;
+  var rec     = (edge !== null && ev !== null)
+                  ? getRecommendation(edge, ev).label
+                  : 'MANUAL';
+  var stake   = fields.stake !== undefined ? fields.stake : 1.0;
+  var outcome = fields.outcome || null; // 'W' / 'L' / 'P' / null (pending)
+
+  // P&L
+  var unitsGL = null;
+  if (outcome && stake > 0) {
+    if (outcome === 'W') {
+      var w = odds < 0 ? 100 / Math.abs(odds) : odds / 100;
+      unitsGL = parseFloat((stake * w).toFixed(3));
+    } else if (outcome === 'P') {
+      unitsGL = 0;
+    } else {
+      unitsGL = -stake;
+    }
+  }
+
+  // CLV — compute if closing odds provided
+  var clv = null;
+  if (fields.closingOdds && modelPct) {
+    var openProb  = americanToImplied(odds);
+    var closeProb = americanToImplied(parseInt(fields.closingOdds));
+    clv = parseFloat(((openProb - closeProb) * 100).toFixed(2));
+  }
+
+  return {
+    id          : fields.id     || Date.now(),
+    date        : fields.date   || '',
+    away        : (fields.matchup || '').split(' @ ')[0] || '',
+    home        : (fields.matchup || '').split(' @ ')[1] || '',
+    matchup     : fields.matchup || '',
+    market      : fields.market  || 'ML',
+    pick        : fields.pick    || '',
+    tier        : fields.tier    || 'MANUAL',
+    modelPct    : modelPct,
+    odds        : odds,
+    oddsSource  : 'actual',      // manual bets use the odds you type
+    implied     : implied,
+    edge        : edge,
+    ev          : ev,
+    rec         : rec,
+    stake       : stake,
+    outcome     : outcome,
+    score       : fields.score       || '',
+    unitsGL     : unitsGL,
+    closingOdds : fields.closingOdds || null,
+    clv         : clv,
+    notes       : fields.notes  || '',
+    source      : 'manual'
+  };
+}
+
+
+function addManualBet(entry) {
+  var bets = loadManualBets();
+  entry.source = 'manual';
+  entry.id = Date.now();
+  bets.push(entry);
+  saveManualBets(bets);
+}
+
+
+
+
+// ════════════════════════════════════════════════════════════════
+// MODEL B — LOGISTIC REGRESSION BASELINE
+// ────────────────────────────────────────────────────────────────
+// A structured, data-driven model to A/B test against Model A.
+// All weights live in MODEL_B_WEIGHTS — swap in trained values later.
+// Feature generation is separated from model eval for reusability.
+// ════════════════════════════════════════════════════════════════
+
+// ── Weight configuration ── (single source of truth)
+var MODEL_B_WEIGHTS = {
+
+  // ML / RL model
+  // Features are differential: positive value = home team advantage
+  ml: {
+    bias        : -0.25,  // base intercept (without home field ~50% win rate)
+    xfip_edge   :  0.40,  // SP xFIP difference (per 1.0 run; lower xFIP = better)
+    bp_edge     :  0.18,  // bullpen ERA difference (per 1.0 run)
+    off_edge    :  0.15,  // offensive wRC+ difference (per 100 pts, normalized)
+    kBB_edge    :  0.12,  // SP K-BB% difference (per 10%, normalized)
+    gb_edge     :  0.06,  // SP GB% difference (per 10%, normalized)
+    rd_edge     :  0.12,  // run differential difference (per 200 runs, normalized)
+    form_edge   :  0.15,  // L10 win difference (per 10 games, normalized)
+    park_factor :  0.10,  // park run effect (deviation from neutral 1.0)
+    home_field  :  0.45   // constant home field advantage (~54% baseline)
+  },
+
+  // Totals model — separate weight set
+  totals: {
+    sp_xfip_per_run : 0.70,  // each 1-run xFIP above avg → +0.70 expected runs
+    off_per_100     : 0.015, // each 100 wRC+ above average → more run scoring
+    park_per_dev    : 1.20,  // each 0.10 park factor → +0.12 expected runs
+    scale           : 0.45   // sigmoid sharpness (lower = flatter P curve vs line)
+  }
+};
+
+// Logistic function
+function sigmoid(x) {
+  return 1 / (1 + Math.exp(-x));
+}
+
+// Parse "7-3" L10 string → win count (defaults to 5 if missing)
+function parseL10Wins(l10str) {
+  if (!l10str) return 5;
+  var parts = (l10str + '').split('-');
+  return parseInt(parts[0]) || 5;
+}
+
+// ── FEATURE ENGINEERING ──
+// All features expressed from the HOME team's perspective.
+// Positive value = home team has an advantage on this dimension.
+// Pure function: same inputs → same output, no side effects.
+function buildFeatureVector(p) {
+  var t1  = T[p[0]] || T['Yankees']; // away team profile
+  var t2  = T[p[1]] || T['Yankees']; // home team profile
+  var sp1 = getActiveSP(p[2]);       // away SP (blended preseason + live)
+  var sp2 = getActiveSP(p[3]);       // home SP
+
+  // ── Starting pitcher features ──
+  // xFIP: lower = better. xfip_edge > 0 means away SP is worse → home advantage.
+  var sp1xfip = sp1.xfip || 4.20;
+  var sp2xfip = sp2.xfip || 4.20;
+  var xfip_edge = sp1xfip - sp2xfip;
+
+  // K-BB%: higher = better (SP dominates hitters). Normalized per 10%.
+  var sp1kBB = sp1.kBBPct || ((sp1.kPct||20) - (sp1.bb9||3) * 1.5);
+  var sp2kBB = sp2.kBBPct || ((sp2.kPct||20) - (sp2.bb9||3) * 1.5);
+  var kBB_edge = (sp2kBB - sp1kBB) / 10;
+
+  // GB%: higher = more groundballs = fewer HRs. Normalized per 10%.
+  var gb_edge = ((sp2.gbPct||45) - (sp1.gbPct||45)) / 10;
+
+  // First-start variance penalty (0 IP = unknown performance)
+  // Away first start → slight home advantage; home first start → slight home disadvantage
+  var fs_adj = 0;
+  if ((sp1.ip||0) === 0) fs_adj += 0.12; // away starter unknown → home edge
+  if ((sp2.ip||0) === 0) fs_adj -= 0.12; // home starter unknown → away edge
+
+  // ── Team features ──
+  // Bullpen ERA: lower = better. bp_edge > 0 = away bullpen worse → home advantage.
+  var bp_edge = (t1.bpEra||4.0) - (t2.bpEra||4.0);
+
+  // Offense (wRC+): higher = better. off_edge > 0 = home offense better. Normalized.
+  var off_edge = ((t2.wrcp||100) - (t1.wrcp||100)) / 100;
+
+  // Run differential (season quality): more is better for home. Normalized per 200.
+  var rd_edge = ((t2.rd||0) - (t1.rd||0)) / 200;
+
+  // Recent form (L10): positive = home team has better recent results. Normalized.
+  var form_edge = (parseL10Wins(t2.l10) - parseL10Wins(t1.l10)) / 10;
+
+  // ── Context ──
+  // Park factor: 1.05 = 5% more runs than average. Deviation from neutral (1.0).
+  var park_dev = (t2.pf||1.0) - 1.0;
+
+  return {
+    xfip_edge   : parseFloat(xfip_edge.toFixed(3)),
+    kBB_edge    : parseFloat(kBB_edge.toFixed(3)),
+    gb_edge     : parseFloat(gb_edge.toFixed(3)),
+    fs_adj      : fs_adj,
+    bp_edge     : parseFloat(bp_edge.toFixed(3)),
+    off_edge    : parseFloat(off_edge.toFixed(3)),
+    rd_edge     : parseFloat(rd_edge.toFixed(3)),
+    form_edge   : parseFloat(form_edge.toFixed(3)),
+    park_dev    : parseFloat(park_dev.toFixed(3)),
+    home_field  : 1.0,
+    // metadata for debugging
+    sp1: p[2], sp2: p[3], away: p[0], home: p[1]
+  };
+}
+
+// ── LOGISTIC REGRESSION — ML/RL ──
+// Returns P(home team wins ML), range clipped to [0.30, 0.75].
+// Clipping prevents extreme values on limited early-season data.
+function modelBHomeWinProb(fv) {
+  var w = MODEL_B_WEIGHTS.ml;
+  var x = w.bias
+        + w.xfip_edge   * fv.xfip_edge
+        + w.bp_edge     * fv.bp_edge
+        + w.off_edge    * fv.off_edge
+        + w.kBB_edge    * fv.kBB_edge
+        + w.gb_edge     * fv.gb_edge
+        + w.rd_edge     * fv.rd_edge
+        + w.form_edge   * fv.form_edge
+        + w.park_factor * fv.park_dev
+        + w.home_field  * fv.home_field
+        + fv.fs_adj;
+  return Math.min(0.75, Math.max(0.30, sigmoid(x)));
+}
+
+// ── EXPECTED RUNS — TOTALS ──
+// Projects expected total runs using both SPs, team offense, and park.
+function modelBExpectedTotal(p) {
+  var t1  = T[p[0]] || T['Yankees'];
+  var t2  = T[p[1]] || T['Yankees'];
+  var sp1 = getActiveSP(p[2]);
+  var sp2 = getActiveSP(p[3]);
+  var w   = MODEL_B_WEIGHTS.totals;
+
+  // League-average xFIP reference
+  var lgXfip = t2.lgAvgXfip || 3.95;
+
+  // How much above/below average is each SP?
+  // Above-average xFIP (higher) = more runs allowed
+  var sp1RunsAdj = ((sp1.xfip||lgXfip) - lgXfip) * w.sp_xfip_per_run;
+  var sp2RunsAdj = ((sp2.xfip||lgXfip) - lgXfip) * w.sp_xfip_per_run;
+
+  // Offensive adjustment (both teams)
+  var offAvg = ((t1.wrcp||100) + (t2.wrcp||100)) / 2 - 100;
+  var offAdj = offAvg * w.off_per_100;
+
+  // Park adjustment
+  var parkAdj = ((t2.pf||1.0) - 1.0) * w.park_per_dev;
+
+  // Base: ~9.0 runs/game MLB average (2024-25 era)
+  var expected = 9.0 + sp1RunsAdj + sp2RunsAdj + offAdj + parkAdj;
+  return parseFloat(expected.toFixed(2));
+}
+
+// ── PICK-AWARE PROBABILITY ──
+// Converts home win probability to probability of the SPECIFIC PICK winning.
+// This is what we compare vs implied probability to compute edge and EV.
+function computeModelB(p) {
+  var type = p[9]; // ML / RL / OVER / UNDER
+
+  if (type === 'OVER' || type === 'UNDER') {
+    var expected = modelBExpectedTotal(p);
+    var line     = parseFloat(p[7]);
+    var scale    = MODEL_B_WEIGHTS.totals.scale;
+    // P(OVER) = sigmoid of how far expected total is above the line
+    var pOver = Math.min(0.72, Math.max(0.28, sigmoid((expected - line) / scale)));
+    return {
+      probPct  : Math.round((type === 'OVER' ? pOver : 1 - pOver) * 100),
+      expected : expected,
+      features : null,
+      model    : 'B'
+    };
+  }
+
+  // ML or RL
+  var fv = buildFeatureVector(p);
+  var homeWinProb = modelBHomeWinProb(fv);
+
+  // Determine if pick is on home team
+  var pickText = (p[8]||'').toLowerCase();
+  var pickHome = pickText.indexOf(p[1].toLowerCase()) >= 0
+              || pickText.indexOf(p[1].split(' ').pop().toLowerCase()) >= 0;
+  var prob = pickHome ? homeWinProb : (1 - homeWinProb);
+
+  // RL: adjust down from ML probability (winning by 2+ is harder than winning)
+  if (type === 'RL') {
+    var margin = Math.abs(estimateRunMargin(p));
+    var rlAdj = margin >= 2.5 ? 0.0 : margin >= 1.5 ? -0.06 : -0.12;
+    prob = Math.min(0.72, Math.max(0.28, prob + rlAdj));
+  }
+
+  return {
+    probPct     : Math.round(prob * 100),
+    homeWinProb : parseFloat(homeWinProb.toFixed(3)),
+    features    : fv,
+    model       : 'B'
+  };
+}
+
+// ── MODEL B BETTING LINE ──
+// Same interface as getBettingLine() but uses Model B probability.
+function getModelBBettingLine(p) {
+  var mb      = computeModelB(p);
+  var odds    = getPickOdds(p);
+  var implied = parseFloat((americanToImplied(odds) * 100).toFixed(1));
+  var edge    = calcEdge(mb.probPct, odds);
+  var ev      = calcEV(mb.probPct, odds);
+  var rec     = getRecommendation(edge, ev);
+  return {
+    modelPct : mb.probPct,
+    odds     : odds,
+    implied  : implied,
+    edge     : edge,
+    ev       : ev,
+    rec      : rec.label,
+    units    : rec.units,
+    color    : rec.color
+  };
+}
+
+// ── CALIBRATION CHECK ──
+// Groups graded picks by Model B probability bucket, shows predicted vs actual.
+// Run in browser console: modelBCalibrationCheck()
+function modelBCalibrationCheck() {
+  var buckets = {};
+  ['28-35','35-45','45-50','50-55','55-60','60-65','65-72'].forEach(function(b){ buckets[b]=[]; });
+
+  PICKS.forEach(function(p) {
+    if (p[11] === 'SKIP') return;
+    var r = getPickResult(p);
+    if (!r) return;
+    var mb = computeModelB(p);
+    var pct = mb.probPct;
+    var b = pct < 35 ? '28-35' : pct < 45 ? '35-45' : pct < 50 ? '45-50' :
+            pct < 55 ? '50-55' : pct < 60 ? '55-60' : pct < 65 ? '60-65' : '65-72';
+    buckets[b].push(r.outcome === 'W');
+  });
+
+  console.log('\n[Model B Calibration Check]');
+  console.log('Bucket    Predicted   Actual    n');
+  Object.keys(buckets).forEach(function(b) {
+    var arr = buckets[b];
+    if (!arr.length) return;
+    var wins = arr.filter(Boolean).length;
+    var mid = (parseInt(b.split('-')[0]) + parseInt(b.split('-')[1])) / 2;
+    console.log(b+'%    '+mid.toFixed(0)+'%         '+(wins/arr.length*100).toFixed(1)+'%       '+arr.length);
+  });
+}
+
+// ── MODEL AGREEMENT SIGNAL ──
+// When both Model A and Model B agree the pick has edge, confidence is higher.
+// Returns: 'agree' | 'disagree' | 'neutral'
+function modelAgreement(p) {
+  var maEdge = calcEdge(computeAdjConf(p, p[10]), getPickOdds(p));
+  var mbEdge = getModelBBettingLine(p).edge;
+  if (maEdge > 2 && mbEdge > 2) return 'agree';
+  if (maEdge > 0 && mbEdge < 0) return 'disagree';
+  if (maEdge < 0 && mbEdge > 0) return 'disagree';
+  return 'neutral';
+}
+
 
 function computeAdjConf(p, base) {
   var adj = base;
@@ -2571,11 +3222,16 @@ function renderToday() {
     return true;
   });
 
-  function toMins(t){var m=(t||'').match(/(\d+):(\d+)([ap])/i);if(!m)return 999;var h=parseInt(m[1]),mn=parseInt(m[2]),ap=m[3].toLowerCase();h=ap==='p'&&h!==12?h+12:ap==='a'&&h===12?0:h;return h*60+mn;}
+  
+function toMins(t){var m=(t||'').match(/(\d+):(\d+)([ap])/i);if(!m)return 999;var h=parseInt(m[1]),mn=parseInt(m[2]),ap=m[3].toLowerCase();h=ap==='p'&&h!==12?h+12:ap==='a'&&h===12?0:h;return h*60+mn;}
+  // Sort: PASS picks go last; within groups, sort by edge descending
   todayPicks.sort(function(a,b){
-    var ga=SCHEDULE.find(function(s){return s.t1===a[0]&&s.t2===a[1]&&s.day===a[15];})||SCHEDULE.find(function(s){return s.t1===a[0]&&s.t2===a[1];});
-    var gb=SCHEDULE.find(function(s){return s.t1===b[0]&&s.t2===b[1]&&s.day===b[15];})||SCHEDULE.find(function(s){return s.t1===b[0]&&s.t2===b[1];});
-    return toMins(ga?ga.tm:'9:99p')-toMins(gb?gb.tm:'9:99p');
+    var ba = getBettingLine(a), bb = getBettingLine(b);
+    // PASS always goes after non-PASS
+    if (ba.rec === 'PASS' && bb.rec !== 'PASS') return 1;
+    if (bb.rec === 'PASS' && ba.rec !== 'PASS') return -1;
+    // Otherwise sort by edge descending
+    return bb.edge - ba.edge;
   });
 
   var gameKeys=[],gameMap={};
@@ -2606,6 +3262,22 @@ function renderToday() {
   var bestHtml='',playsHtml='';
   var hasBest=false,hasPlays=false;
 
+  // ── Apply sort ──
+  var recOrder = {'STRONG BET':0,'BET':1,'LEAN':2,'PASS':3};
+  gameKeys.sort(function(ka, kb) {
+    var pa = gameMap[ka][0], pb = gameMap[kb][0];
+    var ba = getBettingLine(pa), bb = getBettingLine(pb);
+    if (todaySort === 'ev')   return bb.ev   - ba.ev;
+    if (todaySort === 'edge') return bb.edge - ba.edge;
+    if (todaySort === 'rec')  return (recOrder[ba.rec]||9) - (recOrder[bb.rec]||9);
+    // 'time' — use schedule game time
+    
+function toMins(t){var m=(t||'').match(/(\d+):(\d+)([ap])/i);if(!m)return 999;var h=parseInt(m[1]),mn=parseInt(m[2]),ap=m[3].toLowerCase();h=ap==='p'&&h!==12?h+12:ap==='a'&&h===12?0:h;return h*60+mn;}
+    var ga=SCHEDULE.find(function(s){return s.t1===pa[0]&&s.t2===pa[1];})||{tm:'9:99p'};
+    var gb=SCHEDULE.find(function(s){return s.t1===pb[0]&&s.t2===pb[1];})||{tm:'9:99p'};
+    return toMins(ga.tm)-toMins(gb.tm);
+  });
+
   gameKeys.forEach(function(key){
     var picks=gameMap[key];
     var p=picks[0];
@@ -2617,7 +3289,20 @@ function renderToday() {
     var cardHtml='<div class="pc" onclick="this.classList.toggle(\'open\')" style="margin-bottom:8px;position:relative">'+
       '<div class="pc-grad" style="background:'+cardGradient(p[0],p[1])+'"></div>'+
       '<div class="pc-row">'+
-      (hasBestPick?'<span class="bdg b-best">★ BEST</span>':'<span class="bdg b-play">PLAY</span>')+
+      (function(){
+        // Use computed rec from the strongest pick in this game
+        var bestBl = null;
+        picks.forEach(function(px){
+          var bl = getBettingLine(px);
+          if (!bestBl || bl.edge > bestBl.edge) bestBl = bl;
+        });
+        if (!bestBl) return '';
+        var r = bestBl.rec;
+        var bg = r==='STRONG BET'?'rgba(242,184,50,.15)':r==='BET'?'rgba(60,184,120,.12)':r==='LEAN'?'rgba(155,127,212,.1)':'rgba(107,114,128,.08)';
+        var border = r==='STRONG BET'?'rgba(242,184,50,.5)':r==='BET'?'rgba(60,184,120,.4)':r==='LEAN'?'rgba(155,127,212,.4)':'rgba(107,114,128,.3)';
+        var col = bestBl.color;
+        return '<span style="font-family:IBM Plex Mono,monospace;font-size:7px;padding:2px 8px;border-radius:3px;font-weight:600;letter-spacing:.04em;background:'+bg+';border:1px solid '+border+';color:'+col+'">'+r+'</span>';
+      })()+
       (gameTime?'<span style="font-family:IBM Plex Mono,monospace;font-size:7px;color:var(--mu);white-space:nowrap">'+gameTime+'</span>':'')+
       '<div class="pm"><div class="pt">'+
       '<div class="pc-team-wrap" style="margin-right:10px">'+
@@ -2667,7 +3352,43 @@ function renderToday() {
           '<span class="bdg '+typeBadge+'" style="font-size:7px;margin-bottom:4px;display:inline-block">'+px[9]+'</span>'+
           '<div class="pv '+pClass(px[11])+'" style="font-size:15px">'+px[8]+'</div>'+
           '<div class="cb" style="margin-top:4px"><div class="cb-w"><div class="cb-f" style="width:'+adjC+'%;background:'+cb+'"></div></div>'+
-          '<span class="cp2" style="color:'+cb+'">'+adjC+'%</span></div></div>';
+          '<span class="cp2" style="color:'+cb+'">'+adjC+'%</span></div>'+
+          (function(){
+            var bl=getBettingLine(px);
+            var ec=bl.edge>=5?'#F2B832':bl.edge>=3?'#3CB878':bl.edge>=1?'#9B7FD4':'#6B7280';
+            var evc=bl.ev>0.05?'#3CB878':bl.ev>0?'#9B7FD4':'#6B7280';
+            var rbg=bl.rec==='STRONG BET'?'rgba(242,184,50,.15)':bl.rec==='BET'?'rgba(60,184,120,.12)':bl.rec==='LEAN'?'rgba(155,127,212,.1)':'rgba(107,114,128,.08)';
+            return '<div style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.06);font-family:IBM Plex Mono,monospace">'+
+              '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:5px">'+
+              '<div style="font-size:7px"><span style="color:var(--mu)">MDL </span><b style="color:var(--tx)">'+bl.modelPct+'%</b></div>'+
+              '<div style="font-size:7px"><span style="color:var(--mu)">IMP </span><b style="color:var(--tx)">'+bl.implied+'%</b></div>'+
+              '<div style="font-size:7px"><span style="color:var(--mu)">EDGE </span><b style="color:'+ec+'">'+(bl.edge>0?'+':'')+bl.edge+'%</b></div>'+
+              '<div style="font-size:7px"><span style="color:var(--mu)">EV </span><b style="color:'+evc+'">'+(bl.ev>0?'+':'')+bl.ev+'u</b></div>'+
+              '</div>'+
+              '<div style="font-size:7px;padding:2px 7px;border-radius:2px;display:inline-block;background:'+rbg+';color:'+bl.color+';font-weight:600">'+
+              (bl.units>0?bl.units+'u stake':'PASS')+
+              '</div>'+
+              // ── Model A vs Model B comparison row ──
+              (function(){
+                var mb = getModelBBettingLine(px);
+                var aCol = bl.edge >= 3 ? 'var(--gn)' : bl.edge >= 1 ? 'var(--gd)' : 'var(--mu)';
+                var bCol = mb.edge >= 3 ? 'var(--gn)' : mb.edge >= 1 ? 'var(--gd)' : 'var(--mu)';
+                var agree = modelAgreement(px);
+                var agreeIcon = agree==='agree' ? '⟡' : agree==='disagree' ? '✗' : '·';
+                var agreeTip  = agree==='agree' ? 'Both models agree' : agree==='disagree' ? 'Models diverge — caution' : '';
+                var diffPct = mb.modelPct - bl.modelPct;
+                return '<div style="margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,.05);font-family:IBM Plex Mono,monospace;font-size:7px">'+
+                  '<div style="display:flex;gap:8px;align-items:center">'+
+                    '<div><span style="color:var(--mu)">A </span><span style="color:'+aCol+'">'+bl.modelPct+'%</span></div>'+
+                    '<div><span style="color:var(--mu)">B </span><span style="color:'+bCol+'">'+mb.modelPct+'%</span></div>'+
+                    (diffPct !== 0 ? '<div style="color:'+(diffPct>0?'var(--sb)':'var(--or)')+'">('+(diffPct>0?'+':'')+diffPct+'%)</div>' : '')+
+                    '<div title="'+agreeTip+'" style="color:'+(agree==='agree'?'var(--gn)':agree==='disagree'?'var(--rd)':'var(--mu)')+'">'+agreeIcon+'</div>'+
+                  '</div>'+
+                '</div>';
+              })()+
+              '</div>';
+          })()+
+          '</div>';
       }).join('')+
       '</div>'+
       '<span class="pa" style="position:absolute;right:14px;bottom:10px">&#9662;</span>'+
@@ -2686,6 +3407,47 @@ function renderToday() {
   var playsSect = hasPlays ? '<div class="today-section-lbl" style="margin-top:16px">All Plays Today</div>'+playsHtml : '';
   if (!hasBest && !hasPlays) playsSect = '<div class="today-empty">No picks for today yet — check back shortly</div>';
 
+  // ── EV Filter ──
+  var filterEl = document.getElementById('today-filter');
+  if (filterEl) {
+    
+function fBtn(label, val) {
+      var active = todayEvFilter === val;
+      return '<button onclick="setTodayFilter(\''+val+'\')" style="'+
+        'font-family:IBM Plex Mono,monospace;font-size:7px;padding:3px 10px;border-radius:3px;cursor:pointer;margin-right:4px;'+
+        'border:1px solid '+(active?'rgba(242,184,50,.5)':'rgba(255,255,255,.12)')+';'+
+        'background:'+(active?'rgba(242,184,50,.12)':'transparent')+';'+
+        'color:'+(active?'#F2B832':'var(--mu)')+'">'+label+'</button>';
+    }
+    filterEl.innerHTML =
+      '<div style="margin-bottom:12px;display:flex;align-items:center;flex-wrap:wrap;gap:6px">'+
+      '<span style="font-family:IBM Plex Mono,monospace;font-size:7px;color:var(--mu)">SHOW:</span>'+
+      fBtn('All Picks','all')+
+      fBtn('+EV Only','ev')+
+      fBtn('Strong Bets Only','strong')+
+      '<span style="font-family:IBM Plex Mono,monospace;font-size:7px;color:var(--mu);margin-left:10px">SORT:</span>'+
+      (function(){
+        
+function sBtn(lbl, val) {
+          var a = todaySort === val;
+          return '<button onclick="setTodaySort(\''+val+'\')" style="font-family:IBM Plex Mono,monospace;font-size:7px;padding:3px 10px;border-radius:3px;cursor:pointer;border:1px solid '+(a?'rgba(242,184,50,.5)':'rgba(255,255,255,.12)')+';background:'+(a?'rgba(242,184,50,.1)':'transparent')+';color:'+(a?'#F2B832':'var(--mu)')+'">'+lbl+'</button>';
+        }
+        return sBtn('EV','ev')+sBtn('Edge','edge')+sBtn('Rec','rec')+sBtn('Time','time');
+      })()+
+      '</div>';
+  }
+
+  // Apply filter to picks
+  if (todayEvFilter === 'ev') {
+    gameKeys = gameKeys.filter(function(k){
+      return gameMap[k].some(function(px){ return getBettingLine(px).ev > 0; });
+    });
+  } else if (todayEvFilter === 'strong') {
+    gameKeys = gameKeys.filter(function(k){
+      return gameMap[k].some(function(px){ var bl=getBettingLine(px); return bl.edge>=5&&bl.ev>0.05; });
+    });
+  }
+
   var bst = document.getElementById('today-best');
   var pls = document.getElementById('today-plays');
   if (bst) bst.innerHTML = recHtml + bestSect;
@@ -2693,162 +3455,224 @@ function renderToday() {
 }
 
 // ══════════ TRACKER ══════════
+// Calculate units won/lost for a pick based on recommendation at time of pick
+function calcPickUnits(p) {
+  var bl  = getBettingLine(p);
+  var stake = bl.units;
+  if (stake === 0) return 0; // PASS — no stake
+  var r = getPickResult(p);
+  if (!r) return null; // not graded yet
+  var odds = bl.odds;
+  if (r.outcome === 'W') {
+    // Win: profit = stake × (odds > 0 ? odds/100 : 100/|odds|)
+    var winAmt = odds < 0 ? (100 / Math.abs(odds)) : (odds / 100);
+    return parseFloat((stake * winAmt).toFixed(2));
+  } else {
+    return -stake; // Loss: lose the stake
+  }
+}
+
 function renderTracker() {
-  function calcRecord(arr){
-    var W=0,L=0;
-    arr.forEach(function(e){if(e.outcome==='W')W++;else L++;});
-    var total=W+L;
-    return{W:W,L:L,total:total,pct:total>0?((W/total)*100).toFixed(0):'—',roi:total>0?((W-L)/total*100).toFixed(1):'—'};
-  }
-
-  function statBar(rec){
-    var pctCol=rec.pct==='—'?'var(--mu)':parseInt(rec.pct)>=55?'var(--gn)':parseInt(rec.pct)<45?'var(--rd)':'var(--gd)';
-    var roiCol=rec.roi==='—'?'var(--mu)':parseFloat(rec.roi)>0?'var(--gn)':'var(--rd)';
-    return '<div class="tracker-stats" style="margin-bottom:0">'+
-      '<div class="ts-box"><div class="ts-val" style="color:var(--gn)">'+rec.W+'</div><div class="ts-lbl">W</div></div>'+
-      '<div class="ts-box"><div class="ts-val" style="color:var(--rd)">'+rec.L+'</div><div class="ts-lbl">L</div></div>'+
-      '<div class="ts-box"><div class="ts-val" style="color:'+pctCol+'">'+(rec.pct==='—'?'—':rec.pct+'%')+'</div><div class="ts-lbl">Win%</div></div>'+
-      '<div class="ts-box"><div class="ts-val" style="color:'+roiCol+'">'+(rec.roi==='—'?'—':(parseFloat(rec.roi)>0?'+':'')+rec.roi+'%')+'</div><div class="ts-lbl">ROI</div></div>'+
-      '</div>';
-  }
-
-  function entryLog(arr,emptyMsg){
-    if(!arr.length)return'<div style="text-align:center;padding:16px;font-family:IBM Plex Mono,monospace;font-size:9px;color:var(--mu)">'+emptyMsg+'</div>';
-    return arr.slice().reverse().map(function(e){
-      var tc=e.tier==='★ BEST'?'b-best':e.tier==='PLAY'?'b-play':'b-lean';
-      var icon=e.outcome==='W'?'✓':'✗';
-      var iconColor=e.outcome==='W'?'var(--gn)':'var(--rd)';
-      var confCol=e.conf>=65?'var(--gn)':e.conf>=58?'var(--gd)':'var(--sb)';
-      var typeCls=e.type==='OVER'?'b-over':e.type==='UNDER'?'b-under':e.type==='RL'?'b-rl':'b-ml';
-      return '<div class="tr-row '+(e.outcome==='W'?'result-win':'result-loss')+'">'+
-        '<div class="tr-result" style="color:'+iconColor+';font-size:18px;flex-shrink:0">'+icon+'</div>'+
-        '<div style="flex:1;min-width:0">'+
-        '<div class="tr-pick-name">'+e.pick+'</div>'+
-        '<div class="tr-score" style="font-size:9px;color:var(--sb)">'+e.away+' @ '+e.home+(e.score?' · <b style="color:var(--tx)">'+e.score+'</b>':'')+'</div>'+
-        '</div>'+
-        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">'+
-        '<div style="display:flex;gap:4px"><span class="bdg '+tc+'" style="font-size:6px">'+e.tier+'</span><span class="bdg '+typeCls+'" style="font-size:6px">'+e.type+'</span></div>'+
-        '<div style="font-family:IBM Plex Mono,monospace;font-size:8px;color:'+confCol+'">'+e.conf+'%</div>'+
-        '<div style="font-family:IBM Plex Mono,monospace;font-size:7px;color:var(--mu)">'+e.date+'</div>'+
-        '</div></div>';
-    }).join('');
-  }
-
-  function section(title,accentColor,statsHtml,logHtml,pending){
-    return '<div class="mc2" style="margin-bottom:14px">'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'+
-      '<div class="mc2-t" style="color:'+accentColor+';font-size:14px;letter-spacing:2px">'+title+'</div>'+
-      (pending?'<span style="font-family:IBM Plex Mono,monospace;font-size:8px;color:var(--mu)">'+pending+' pending</span>':'')+
-      '</div>'+statsHtml+
-      '<div style="margin-top:10px">'+logHtml+'</div>'+
-      '</div>';
-  }
-
-  // Grade picks
-  var atsPicks=PICKS.filter(function(p){return p[11]!=='SKIP'&&(p[9]==='RL'||p[9]==='ML');});
-  var atsEntries=[],atsPending=0;
-  atsPicks.forEach(function(p){
-    var r=getPickResult(p);
-    if(!r){atsPending++;return;}
-    atsEntries.push({pick:p[8],away:p[0],home:p[1],tier:p[11],type:p[9],conf:p[10],outcome:r.outcome,score:r.score,date:p[15]});
-  });
-
-  var totEntries=[],totPending=0;
-  PICKS.filter(function(p){return p[11]!=='SKIP'&&(p[9]==='OVER'||p[9]==='UNDER');}).forEach(function(p){
-    var r=getPickResult(p);
-    if(!r){totPending++;return;}
-    totEntries.push({pick:p[8],away:p[0],home:p[1],tier:p[11],type:p[9],conf:p[10],outcome:r.outcome,score:r.score,date:p[15]});
-  });
-  TOTALS.forEach(function(t){
-    var key=t[0]+'|'+t[1];
-    var v=RESULTS[key]||RESULTS[t[1]+'|'+t[0]];
-    if(!v||v.st!=='final'){totPending++;return;}
-    var total=v.as+v.hs;
-    var outcome=(t[5]==='OVER'&&total>t[4])||(t[5]==='UNDER'&&total<t[4])?'W':'L';
-    var alreadyCounted=totEntries.some(function(e){return e.away===t[0]&&e.home===t[1];});
-    if(!alreadyCounted)totEntries.push({pick:t[5]+' '+t[4],away:t[0],home:t[1],tier:t[8],type:t[5],conf:t[7],outcome:outcome,score:v.as+'-'+v.hs,date:t[10]||''});
-  });
-
-  var atsRec=calcRecord(atsEntries);
-  var totRec=calcRecord(totEntries);
-  var allGraded=atsEntries.concat(totEntries);
-  allGraded.sort(function(a,b){return CURRENT_WEEK_DAYS.indexOf(a.date)-CURRENT_WEEK_DAYS.indexOf(b.date);});
-
-  var bestE=allGraded.filter(function(e){return e.tier==='★ BEST';});
-  var playE=allGraded.filter(function(e){return e.tier==='PLAY';});
-  var leanE=allGraded.filter(function(e){return e.tier==='LEAN';});
-  var bestRec=calcRecord(bestE),playRec=calcRecord(playE),leanRec=calcRecord(leanE);
-
-  function tierCard(label,rec,accentColor,borderColor){
-    var pctCol=rec.pct==='—'?'var(--mu)':parseInt(rec.pct)>=55?'var(--gn)':parseInt(rec.pct)<45?'var(--rd)':'var(--gd)';
-    var roiCol=rec.roi==='—'?'var(--mu)':parseFloat(rec.roi)>0?'var(--gn)':'var(--rd)';
-    return '<div style="background:var(--card);border:1px solid '+borderColor+';border-radius:5px;padding:14px 16px;flex:1;min-width:120px">'+
-      '<div style="font-family:IBM Plex Mono,monospace;font-size:8px;letter-spacing:2px;color:'+accentColor+';border:1px solid '+borderColor+';border-radius:2px;padding:3px 8px;display:inline-block;margin-bottom:10px">'+label+'</div>'+
-      '<div style="font-family:Bebas Neue,sans-serif;font-size:38px;letter-spacing:2px;line-height:1;color:var(--tx)">'+rec.W+'-'+rec.L+'</div>'+
-      '<div style="font-family:IBM Plex Mono,monospace;font-size:9px;color:var(--sb);margin-top:6px">'+
-      '<span style="color:'+pctCol+'">'+(rec.pct==='—'?'—':rec.pct+'%')+' win rate</span>'+
-      (rec.total>0&&rec.roi!=='—'?' · <span style="color:'+roiCol+'">'+(parseFloat(rec.roi)>0?'+':'')+rec.roi+'%</span>':'')+
-      '</div></div>';
-  }
-
-  function getStreak(entries){
-    if(!entries.length)return{str:'—',col:'var(--mu)'};
-    var sorted=entries.slice().sort(function(a,b){return CURRENT_WEEK_DAYS.indexOf(a.date)-CURRENT_WEEK_DAYS.indexOf(b.date);});
-    var last=sorted[sorted.length-1].outcome;
-    var count=0;
-    for(var i=sorted.length-1;i>=0;i--){if(sorted[i].outcome===last)count++;else break;}
-    return{str:(last==='W'?'W':'L')+count,col:last==='W'?'var(--gn)':'var(--rd)'};
-  }
-  var streak=getStreak(allGraded);
-
-  function dayBreakdown(entries){
-    var days={};
-    entries.forEach(function(e){
-      if(!days[e.date])days[e.date]={W:0,L:0};
-      if(e.outcome==='W')days[e.date].W++;else days[e.date].L++;
-    });
-    var daysWithGames=CURRENT_WEEK_DAYS.filter(function(d){return days[d];});
-    if(!daysWithGames.length)return '<div style="font-family:IBM Plex Mono,monospace;font-size:9px;color:var(--mu);text-align:center;padding:10px">No graded games yet</div>';
-    return '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
-      daysWithGames.map(function(d){
-        var rec=days[d];
-        var pct=Math.round(rec.W/(rec.W+rec.L)*100);
-        var col=pct>=60?'var(--gn)':pct>=50?'var(--gd)':pct>=40?'var(--or)':'var(--rd)';
-        return '<div style="background:var(--dm);border-radius:4px;padding:8px 10px;text-align:center;min-width:64px">'+
-          '<div style="font-family:IBM Plex Mono,monospace;font-size:7px;color:var(--mu);margin-bottom:4px">'+d.replace(/\w+ /,'')+'</div>'+
-          '<div style="font-family:Bebas Neue,sans-serif;font-size:20px;color:'+col+'">'+rec.W+'-'+rec.L+'</div>'+
-          '<div style="font-family:IBM Plex Mono,monospace;font-size:7px;color:'+col+'">'+pct+'%</div>'+
-          '</div>';
-      }).join('')+'</div>';
-  }
-
-  var allW=atsRec.W+totRec.W, allL=atsRec.L+totRec.L, allTot=allW+allL;
-  var allPct=allTot>0?((allW/allTot)*100).toFixed(0):'—';
-  var allPctCol=allPct==='—'?'var(--mu)':parseInt(allPct)>=55?'var(--gn)':parseInt(allPct)<45?'var(--rd)':'var(--gd)';
-
   var sumEl = document.getElementById('tracker-sum');
   var logEl = document.getElementById('tracker-log');
-  if (sumEl) sumEl.innerHTML =
-    '<div class="tracker-stats" style="margin-bottom:12px">'+
-    '<div class="ts-box"><div class="ts-val" style="color:var(--gn)">'+allW+'</div><div class="ts-lbl">W</div></div>'+
-    '<div class="ts-box"><div class="ts-val" style="color:var(--rd)">'+allL+'</div><div class="ts-lbl">L</div></div>'+
-    '<div class="ts-box"><div class="ts-val" style="color:'+allPctCol+'">'+(allPct==='—'?'—':allPct+'%')+'</div><div class="ts-lbl">Win%</div></div>'+
-    '<div class="ts-box"><div class="ts-val" style="color:'+streak.col+'">'+streak.str+'</div><div class="ts-lbl">Streak</div></div>'+
-    '<div class="ts-box"><div class="ts-val" style="color:var(--mu)">'+allTot+'</div><div class="ts-lbl">Graded</div></div>'+
-    '</div>'+
-    '<div style="font-family:IBM Plex Mono,monospace;font-size:7px;letter-spacing:2px;color:var(--mu);text-transform:uppercase;margin-bottom:8px">By Tier</div>'+
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">'+
-    tierCard('★ BEST',bestRec,'var(--gd)','rgba(242,184,50,.3)')+
-    tierCard('PLAY',playRec,'var(--gn)','rgba(60,184,120,.25)')+
-    tierCard('LEAN',leanRec,'var(--sb)','var(--bd)')+
-    '</div>'+
-    '<div style="font-family:IBM Plex Mono,monospace;font-size:7px;letter-spacing:2px;color:var(--mu);text-transform:uppercase;margin-bottom:8px">Day by Day</div>'+
-    '<div style="margin-bottom:16px">'+dayBreakdown(allGraded)+'</div>';
+  if (!sumEl || !logEl) return;
 
-  if (logEl) logEl.innerHTML =
-    section('ATS &amp; MONEYLINE','var(--or)',statBar(atsRec),entryLog(atsEntries,'No graded ATS/ML picks yet'),atsPending)+
-    section('TOTALS O/U','var(--bl)',statBar(totRec),entryLog(totEntries,'No graded totals yet'),totPending);
+  // ── Active filters (stored on the elements themselves) ──
+  var activeMarket = sumEl._filterMarket || null;  // null = all
+  var activeTier   = sumEl._filterTier   || null;
+  var activeResult = sumEl._filterResult || null;
+
+  // ── Build entries from model picks ──
+  var allEntries = buildBetLog(null, null);  // no filter yet — filter in UI
+  var manualBets = loadManualBets();
+  // Tag source on model entries
+  allEntries.forEach(function(e){ e.source = 'model'; });
+  // Combine and sort newest first
+  var combined = allEntries.concat(manualBets);
+  combined.sort(function(a,b){ return b.date > a.date ? 1 : b.date < a.date ? -1 : 0; });
+
+  // ── Apply UI filters ──
+  var filtered = combined.filter(function(e) {
+    if (activeMarket && e.market !== activeMarket) return false;
+    if (activeTier   && e.tier   !== activeTier)   return false;
+    if (activeResult && e.outcome !== activeResult) return false;
+    return true;
+  });
+
+  // ── Summary stats ──
+  var summary     = calcBetSummary(combined);   // always full set
+  var filtSummary = calcBetSummary(filtered);   // filtered set
+
+  // Colors
+
+  // ── SUMMARY PANEL ──
+  var pendingCount = PICKS.filter(function(p){
+    return p[11]!=='SKIP' && !getPickResult(p);
+  }).length;
+
+  var winPctCol = summary.winPct === null ? 'var(--mu)' :
+                  summary.winPct >= 55 ? 'var(--gn)' :
+                  summary.winPct < 45  ? 'var(--rd)' : 'var(--gd)';
+  var roiCol = profitCol(summary.roi);
+
+  // Streak
+  var lastFive = allEntries.slice(0, 5);
+  var streakHtml = lastFive.length ? lastFive.map(function(e){
+    return '<span style="font-family:IBM Plex Mono,monospace;font-size:9px;width:18px;height:18px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center;background:'+(e.outcome==='W'?'rgba(60,184,120,.2)':e.outcome==='P'?'rgba(155,127,212,.15)':'rgba(217,79,79,.15)')+';color:'+(e.outcome==='W'?'var(--gn)':e.outcome==='P'?'var(--sb)':'var(--rd)')+'">'+(e.outcome==='W'?'W':e.outcome==='P'?'P':'L')+'</span>';
+  }).join(' ') : '<span style="color:var(--mu);font-size:9px">No results yet</span>';
+
+  // By-tier breakdown
+  
+function tierBlock(tierName, accent, border) {
+    var te = allEntries.filter(function(e){ return e.tier === tierName; });
+    var ts = calcBetSummary(te);
+    var wc = profitCol(ts.roi);
+    return '<div style="background:var(--dm);border:1px solid '+border+';border-radius:4px;padding:10px 12px;flex:1;min-width:100px;text-align:center">'+
+      '<div style="font-family:IBM Plex Mono,monospace;font-size:7px;letter-spacing:1px;color:'+accent+';margin-bottom:6px">'+tierName+'</div>'+
+      '<div style="font-family:Bebas Neue,sans-serif;font-size:28px;color:var(--tx);line-height:1">'+ts.W+'-'+ts.L+'</div>'+
+      '<div style="font-family:IBM Plex Mono,monospace;font-size:7px;margin-top:4px">'+
+        '<span style="color:'+(ts.winPct===null?'var(--mu)':ts.winPct>=55?'var(--gn)':ts.winPct<45?'var(--rd)':'var(--gd)')+'">'+(ts.winPct===null?'—':ts.winPct+'%')+'</span>'+
+        (ts.roi!==null?' &nbsp;<span style="color:'+profitCol(ts.roi)+'">'+fmt(ts.roi,'%')+'</span>':'')+
+      '</div>'+
+      (ts.totalRisked>0?'<div style="font-family:IBM Plex Mono,monospace;font-size:7px;color:var(--mu);margin-top:2px">'+fmt(ts.totalProfit,'u')+' on '+ts.totalRisked+'u risked</div>':'')+
+      '</div>';
+  }
+
+  sumEl.innerHTML =
+    // Top stats row
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">'+
+      '<div class="ts-box"><div class="ts-val" style="color:var(--gn)">'+summary.W+'</div><div class="ts-lbl">W</div></div>'+
+      '<div class="ts-box"><div class="ts-val" style="color:var(--rd)">'+summary.L+'</div><div class="ts-lbl">L</div></div>'+
+      (summary.P > 0 ? '<div class="ts-box"><div class="ts-val" style="color:var(--sb)">'+summary.P+'</div><div class="ts-lbl">P</div></div>' : '')+
+      '<div class="ts-box"><div class="ts-val" style="color:'+winPctCol+'">'+(summary.winPct===null?'—':summary.winPct+'%')+'</div><div class="ts-lbl">Win%</div></div>'+
+      '<div class="ts-box"><div class="ts-val" style="color:'+profitCol(summary.totalProfit)+'">'+fmt(summary.totalProfit,'u')+'</div><div class="ts-lbl">P&amp;L</div></div>'+
+      '<div class="ts-box"><div class="ts-val" style="color:var(--mu)">'+summary.totalRisked+'u</div><div class="ts-lbl">Risked</div></div>'+
+      '<div class="ts-box"><div class="ts-val" style="color:'+roiCol+'">'+fmt(summary.roi,'%')+'</div><div class="ts-lbl">ROI</div></div>'+
+      (summary.avgClv!==null?'<div class="ts-box"><div class="ts-val" style="color:'+profitCol(summary.avgClv)+'">'+fmt(summary.avgClv,'%')+'</div><div class="ts-lbl">Avg CLV</div></div>':'')+
+      '<div class="ts-box"><div class="ts-val" style="color:var(--mu)">'+pendingCount+'</div><div class="ts-lbl">Pending</div></div>'+
+      (summary.avgEdge!==null?'<div class="ts-box"><div class="ts-val" style="color:var(--gd)">'+fmt(summary.avgEdge,'%')+'</div><div class="ts-lbl">Avg Edge</div></div>':'')+
+      (summary.avgEv!==null?'<div class="ts-box"><div class="ts-val" style="color:var(--gd)">'+fmt(summary.avgEv,'u')+'</div><div class="ts-lbl">Avg EV</div></div>':'')+
+    '</div>'+
+    // Recent results strip
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">'+
+      '<div style="font-family:IBM Plex Mono,monospace;font-size:7px;color:var(--mu)">LAST 5:</div>'+
+      streakHtml+
+    '</div>'+
+    // Tier breakdown
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'+
+      tierBlock('★ BEST','var(--gd)','rgba(242,184,50,.25)')+
+      tierBlock('PLAY','var(--gn)','rgba(60,184,120,.2)')+
+      tierBlock('LEAN','var(--sb)','rgba(155,127,212,.2)')+
+    '</div>';
+
+  // ── FILTER BAR ──
+  
+function filterBtn(label, field, value, current) {
+    var active = current === value;
+    return '<button onclick="trackerFilter(\''+field+'\',\''+value+'\',this)" style="'+
+      'font-family:IBM Plex Mono,monospace;font-size:7px;padding:3px 9px;border-radius:3px;cursor:pointer;'+
+      'border:1px solid '+(active?'rgba(155,127,212,.6)':'rgba(255,255,255,.12)')+';'+
+      'background:'+(active?'rgba(155,127,212,.15)':'transparent')+';'+
+      'color:'+(active?'var(--sb)':'var(--mu)')+'">'+label+'</button>';
+  }
+
+  var filterHtml =
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--bd)">'+
+      '<span style="font-family:IBM Plex Mono,monospace;font-size:7px;color:var(--mu);margin-right:2px">MARKET:</span>'+
+      filterBtn('All','market',null, activeMarket)+
+      filterBtn('ML','market','ML', activeMarket)+
+      filterBtn('RL','market','RL', activeMarket)+
+      filterBtn('UNDER','market','UNDER', activeMarket)+
+      filterBtn('OVER','market','OVER', activeMarket)+
+      '<span style="margin-left:8px;font-family:IBM Plex Mono,monospace;font-size:7px;color:var(--mu)">TIER:</span>'+
+      filterBtn('All','tier',null, activeTier)+
+      filterBtn('★ BEST','tier','★ BEST', activeTier)+
+      filterBtn('PLAY','tier','PLAY', activeTier)+
+      filterBtn('LEAN','tier','LEAN', activeTier)+
+      '<span style="margin-left:8px;font-family:IBM Plex Mono,monospace;font-size:7px;color:var(--mu)">RESULT:</span>'+
+      filterBtn('All','result',null, activeResult)+
+      filterBtn('W','result','W', activeResult)+
+      filterBtn('L','result','L', activeResult)+
+    '</div>';
+
+  // ── BET LOG ROWS ──
+  
+function betRow(e) {
+    var glCol   = profitCol(e.unitsGL);
+    var edgeCol = e.edge >= 5 ? 'var(--gn)' : e.edge >= 3 ? 'var(--gd)' : e.edge < 0 ? 'var(--rd)' : 'var(--mu)';
+    var icon    = e.outcome === 'W' ? '✓' : e.outcome === 'P' ? '—' : '✗';
+    var iconCol = e.outcome === 'W' ? 'var(--gn)' : e.outcome === 'P' ? 'var(--sb)' : 'var(--rd)';
+    var tierBg  = e.tier === '★ BEST' ? 'b-best' : e.tier === 'PLAY' ? 'b-play' : 'b-lean';
+    var mktBg   = e.market === 'UNDER' ? 'b-under' : e.market === 'OVER' ? 'b-over' : e.market === 'RL' ? 'b-rl' : 'b-ml';
+    var oddsEst = e.oddsSource === 'estimated' ? '<span style="font-size:6px;color:var(--mu)">~</span>' : '';
+
+    return '<div class="tr-row '+(e.outcome==='W'?'result-win':e.outcome==='P'?'':'result-loss')+'" style="gap:10px">'+
+      // Result icon
+      '<div style="font-size:18px;color:'+iconCol+';flex-shrink:0;width:20px;text-align:center">'+icon+'</div>'+
+      // Pick info
+      '<div style="flex:1;min-width:0">'+
+        '<div class="tr-pick-name" style="margin-bottom:2px">'+e.pick+'</div>'+
+        '<div style="font-family:IBM Plex Mono,monospace;font-size:8px;color:var(--sb)">'+
+          e.away+' @ '+e.home+
+          (e.score ? ' · <b style="color:var(--tx)">'+e.score+'</b>' : '')+
+        '</div>'+
+        '<div style="display:flex;gap:4px;margin-top:3px">'+
+          '<span class="bdg '+tierBg+'" style="font-size:6px">'+e.tier+'</span>'+
+          '<span class="bdg '+mktBg+'" style="font-size:6px">'+e.market+'</span>'+
+          '<span style="font-family:IBM Plex Mono,monospace;font-size:6px;color:var(--mu)">'+e.date+'</span>'+
+        '</div>'+
+      '</div>'+
+      // Betting stats
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;font-family:IBM Plex Mono,monospace">'+
+        // Odds + implied
+        '<div style="font-size:8px;color:var(--tx)">'+oddsEst+(e.odds>0?'+':'')+e.odds+
+          ' <span style="color:var(--mu)">('+e.implied+'%)</span></div>'+
+        // Model A & B + edge
+        '<div style="font-size:7px;color:var(--mu)">'+
+          'A: <span style="color:var(--tx)">'+e.modelPct+'%</span>'+
+          (e.modelB_prob ? ' B: <span style="color:var(--sb)">'+e.modelB_prob+'%</span>' : '')+
+          ' Edge: <span style="color:'+edgeCol+'">'+(e.edge>0?'+':'')+e.edge+'%</span>'+
+        '</div>'+
+        // Stake + P&L
+        '<div style="font-size:8px;font-weight:600;color:'+glCol+'">'+
+          (e.stake > 0 ? e.stake+'u → ' : 'PASS ')+
+          fmt(e.unitsGL, 'u')+
+        '</div>'+
+        (e.clv !== null ? '<div style="font-size:7px;color:'+profitCol(e.clv)+'">CLV '+fmt(e.clv,'%')+'</div>' : '')+
+      '</div>'+
+    '</div>';
+  }
+
+  var rowsHtml = filtered.length
+    ? filtered.map(betRow).join('')
+    : '<div style="text-align:center;padding:20px;font-family:IBM Plex Mono,monospace;font-size:9px;color:var(--mu)">No bets match current filters</div>';
+
+  // Summary for filtered set (if different from full)
+  var filtSumHtml = '';
+  if (activeMarket || activeTier || activeResult) {
+    var fs = filtSummary;
+    filtSumHtml = '<div style="background:var(--dm);border-radius:4px;padding:8px 12px;margin-bottom:8px;display:flex;gap:12px;flex-wrap:wrap;font-family:IBM Plex Mono,monospace;font-size:8px">'+
+      '<span style="color:var(--mu)">Filtered: </span>'+
+      '<span>'+fs.W+'-'+fs.L+(fs.P>0?' '+fs.P+'P':'')+'</span>'+
+      '<span style="color:'+profitCol(fs.roi)+'">ROI '+fmt(fs.roi,'%')+'</span>'+
+      '<span style="color:'+profitCol(fs.totalProfit)+'">'+fmt(fs.totalProfit,'u')+' on '+fs.totalRisked+'u</span>'+
+      '</div>';
+  }
+
+  logEl.innerHTML = filterHtml + filtSumHtml + rowsHtml;
 }
+
+// Filter button handler — toggles filters and re-renders tracker
+function trackerFilter(field, value, btn) {
+  var sumEl = document.getElementById('tracker-sum');
+  if (!sumEl) return;
+  var key = '_filter' + field.charAt(0).toUpperCase() + field.slice(1);
+  // Toggle off if already active
+  sumEl[key] = (sumEl[key] === value) ? null : value;
+  renderTracker();
+}
+
+
 
 // ══════════ SHARP MONEY ══════════
 function renderSharp() {
@@ -3030,11 +3854,13 @@ function renderTeams() {
   if (!t1 || !t2) return;
   var a = T[t1.value], b = T[t2.value];
   if (!a || !b) return;
-  function row(lbl,v1,v2){
+  
+function row(lbl,v1,v2){
     var better = parseFloat(v1)<=parseFloat(v2)?'gn':'rd';
     return '<div class="ts-row"><span class="ts-rl">'+lbl+'</span><span class="ts-rv '+better+'">'+v1+'</span><span class="ts-rv">'+v2+'</span></div>';
   }
-  function profile(t,tn){
+  
+function profile(t,tn){
     return '<div class="ts-profile"><div class="ts-name" style="color:'+teamC1(tn)+'">'+tn+'</div>'+
       row('ERA',t.era,0)+
       row('xFIP',t.xfip,0)+
@@ -3322,6 +4148,19 @@ function generateF5(){return [];}
 function generateProps(){return [];}
 
 // ══════════ NAVIGATION ══════════
+function setTodaySort(val) {
+  todaySort = val;
+  renderToday();
+}
+
+function setTodayFilter(val) {
+  todayEvFilter = val;
+  renderToday();
+  // Scroll to top of today tab
+  var el = document.getElementById('today-best');
+  if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
 function go(id) {
   document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});
   document.querySelectorAll('.nb').forEach(function(b){b.classList.remove('on');});
