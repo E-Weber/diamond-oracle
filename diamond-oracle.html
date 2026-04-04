@@ -555,6 +555,11 @@ footer{background:var(--sf);border-top:1px solid var(--bd);padding:13px 28px;dis
   .rfg{grid-template-columns:1fr}.fgrid{grid-template-columns:1fr}.frow{grid-template-columns:85px 1fr}
   .ts-compare{grid-template-columns:1fr}.mc-table{font-size:11px}
 }
+
+  #sp-source-banner { display:block !important; }
+  #sp-source-banner.live     { background:rgba(60,184,120,.1); color:var(--gn); border:1px solid rgba(60,184,120,.25); }
+  #sp-source-banner.fallback { background:rgba(232,144,50,.1); color:var(--or); border:1px solid rgba(232,144,50,.25); }
+  #sp-source-banner.loading  { background:var(--dm); color:var(--mu); border:1px solid var(--bd); }
 </style>
 </head>
 <body>
@@ -599,6 +604,7 @@ footer{background:var(--sf);border-top:1px solid var(--bd);padding:13px 28px;dis
 <div class="tab on" id="tab-today">
   <div id="today-header"></div>
   <div id="today-filter"></div>
+  <div id="sp-source-banner" style="font-family:IBM Plex Mono,monospace;font-size:8px;padding:6px 12px;margin-bottom:10px;border-radius:4px;display:none"></div>
   <div id="today-best"></div>
   <div id="today-plays"></div>
 </div>
@@ -769,6 +775,18 @@ footer{background:var(--sf);border-top:1px solid var(--bd);padding:13px 28px;dis
 // era, fip, xfip, whip, k9, bb9, bpEra, bpWhip, ops, wrcp, iso, kPct, bbPct, babip
 // l10, homeRec, awayRec, runDiff, parkFactor, parkHR, payroll (1-5), defRating (1-10)
 // clutch (1-10), speedGame (1-10), bullpenDep (1-10, higher=more bullpen-reliant)
+const PROXY = "https://orange-dust-a10c.ewebersms.workers.dev/";
+
+function mlbFetch(endpoint) {
+  console.log("[API] Fetching via proxy:", endpoint);
+  return fetch(PROXY + "?endpoint=" + encodeURIComponent(endpoint))
+    .then(function(r) {
+      if (!r.ok) throw new Error("HTTP " + r.status + " for " + endpoint);
+      return r.json();
+    });
+}
+
+
 const T={
   // ══ AL EAST ══
   "Yankees":{lg:"AL",div:"East",era:3.72,fip:3.65,xfip:3.58,whip:1.18,k9:9.4,bb9:2.8,bpEra:3.41,bpWhip:1.19,ops:.774,wrcp:118,iso:.195,kPct:21.2,bbPct:9.2,babip:.298,l10:"7-3",homeRec:"0-0",awayRec:"0-0",rd:0,pf:0.97,pfHR:0.94,pay:5,def:8,clutch:8,spd:5,bpDep:7,lgAvgXfip:3.95},
@@ -1539,105 +1557,148 @@ var MLB_ABBREV_MAP = {
   'NYM':'Mets','PHI':'Phillies','ATL':'Braves','MIA':'Marlins','WSH':'Nationals','WAS':'Nationals',
   'CHC':'Cubs','STL':'Cardinals','MIL':'Brewers','CIN':'Reds','PIT':'Pirates',
   'LAD':'Dodgers','SD':'Padres','SF':'Giants','COL':'Rockies','AZ':'Diamondbacks','ARI':'Diamondbacks'
-};
-
-function fetchLiveSchedule(callback) {
-  // Fetch today + next 6 days from MLB Stats API
+};function fetchLiveSchedule(callback) {
   var now = new Date();
+  var days2   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  var months2 = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var todayStr = days2[now.getDay()] + ' ' + months2[now.getMonth()] + ' ' + now.getDate();
+
   var dates = [];
   for (var di = 0; di < 7; di++) {
     var d = new Date(now);
     d.setDate(d.getDate() + di);
-    var y = d.getFullYear();
-    var mo = String(d.getMonth()+1).padStart(2,'0');
-    var dd = String(d.getDate()).padStart(2,'0');
-    dates.push(y+'-'+mo+'-'+dd);
+    dates.push(d.getFullYear() + '-' +
+      String(d.getMonth()+1).padStart(2,'0') + '-' +
+      String(d.getDate()).padStart(2,'0'));
   }
-  var startDate = dates[0];
-  var endDate   = dates[dates.length-1];
 
-  // Single API call for the full date range
-  var url = 'https://statsapi.mlb.com/api/v1/schedule?sportId=1' +
-    '&startDate='+startDate+'&endDate='+endDate +
+  var _schedEndpoint = '/api/v1/schedule?sportId=1' +
+    '&startDate=' + dates[0] + '&endDate=' + dates[dates.length-1] +
     '&hydrate=probablePitcher,venue,broadcasts';
 
-  fetch(url)
-    .then(function(r){ return r.json(); })
+  // ── Show loading state ──
+  var spBanner = document.getElementById('sp-source-banner');
+  if (spBanner) { spBanner.textContent = '⟳ Loading live schedule...'; spBanner.className = 'sp-banner loading'; }
+
+  mlbFetch(_schedEndpoint)
     .then(function(data) {
-      // Reset stores
-      liveScheduleGames = [];
+      if (!data.dates) throw new Error('No dates in response');
+
+      // ── DIAGNOSTIC: log raw structure of first game ──
+      var _firstGame = data.dates[0] && data.dates[0].games && data.dates[0].games[0];
+      if (_firstGame) {
+        console.log('[SP-DEBUG] First game away keys:', Object.keys(_firstGame.teams.away));
+        console.log('[SP-DEBUG] probablePitcher away:', _firstGame.teams.away.probablePitcher);
+        console.log('[SP-DEBUG] probablePitcher home:', _firstGame.teams.home.probablePitcher);
+      } else {
+        console.log('[SP-DEBUG] No games in first date entry');
+      }
+      console.log('[SP-DEBUG] Total date entries:', data.dates.length, '| First date games:', data.dates[0] && data.dates[0].games ? data.dates[0].games.length : 0);
+
+      liveScheduleGames  = [];
       liveScheduleByDate = {};
 
-      if (!data.dates) { if (callback) callback(); return; }
+      var totalGames = 0, confirmedBoth = 0, missingOne = 0, missingBoth = 0;
 
       data.dates.forEach(function(dateEntry) {
-        var rawDate = dateEntry.date; // "2026-04-02"
-        var dayStr  = mlbDateToDayStr(rawDate);
+        var dayStr = mlbDateToDayStr(dateEntry.date);
         liveScheduleByDate[dayStr] = [];
 
         dateEntry.games.forEach(function(g) {
+          totalGames++;
           var awayAbbr = g.teams.away.team.abbreviation;
           var homeAbbr = g.teams.home.team.abbreviation;
-          var awayName = MLB_ABBREV_MAP[awayAbbr] || g.teams.away.team.name.split(' ').pop();
-          var homeName = MLB_ABBREV_MAP[homeAbbr] || g.teams.home.team.name.split(' ').pop();
+          var awayName = MLB_ABBREV_MAP[awayAbbr] || g.teams.away.team.name;
+          var homeName = MLB_ABBREV_MAP[homeAbbr] || g.teams.home.team.name;
 
-          // Game time — gameDate is UTC ISO string
+          var awayP = g.teams.away.probablePitcher;
+          var homeP = g.teams.home.probablePitcher;
+
+          var sp1Name = awayP ? awayP.fullName : null;
+          var sp2Name = homeP ? homeP.fullName : null;
+          var sp1Id   = awayP ? awayP.id       : null;
+          var sp2Id   = homeP ? homeP.id        : null;
+
+          var sp1Confirmed = !!(sp1Name && sp1Id);
+          var sp2Confirmed = !!(sp2Name && sp2Id);
+
+          if      (sp1Confirmed && sp2Confirmed) confirmedBoth++;
+          else if (!sp1Confirmed && !sp2Confirmed) missingBoth++;
+          else missingOne++;
+
           var gameTime = '';
           if (g.gameDate) {
             var gd = new Date(g.gameDate);
             var hr = gd.getHours(), mn = gd.getMinutes();
-            var ampm = hr >= 12 ? 'p' : 'a';
-            hr = hr % 12 || 12;
-            gameTime = hr + ':' + String(mn).padStart(2,'0') + ampm;
+            gameTime = (hr%12||12) + ':' + String(mn).padStart(2,'0') + (hr>=12?'p':'a');
           }
 
-          // TV — first broadcast name
-          var tv = (g.broadcasts && g.broadcasts.length) ? g.broadcasts[0].name : 'mlbtv';
-
-          // Venue
-          var site = (g.venue && g.venue.name) ? g.venue.name : '';
-
-          var game = {
-            day:      dayStr,
-            away:     awayName,
-            home:     homeName,
-            awayAbbr: awayAbbr,
-            homeAbbr: homeAbbr,
-            t1:       awayName,
-            t2:       homeName,
-            tm:       gameTime,
-            tv:       tv,
-            site:     site,
-            sp1:      g.teams.away.probablePitcher ? lastName(g.teams.away.probablePitcher.fullName) : 'TBD',
-            sp2:      g.teams.home.probablePitcher ? lastName(g.teams.home.probablePitcher.fullName) : 'TBD',
-            sp1Full:  g.teams.away.probablePitcher ? g.teams.away.probablePitcher.fullName : 'TBD',
-            sp2Full:  g.teams.home.probablePitcher ? g.teams.home.probablePitcher.fullName : 'TBD',
-            sp1Id:    g.teams.away.probablePitcher ? g.teams.away.probablePitcher.id : null,
-            sp2Id:    g.teams.home.probablePitcher ? g.teams.home.probablePitcher.id : null,
-            status:   g.status ? g.status.abstractGameState : 'Preview',
-            gamePk:   g.gamePk
-          };
-
-          liveScheduleByDate[dayStr].push(game);
-          // Also push today's games into liveScheduleGames for backward compat
-          if (di === 0 || rawDate === startDate) {
-            // check if this date is today
-          }
+          liveScheduleByDate[dayStr].push({
+            day: dayStr, away: awayName, home: homeName,
+            t1: awayName, t2: homeName,
+            awayAbbr: awayAbbr, homeAbbr: homeAbbr,
+            sp1Full: sp1Name || 'TBD', sp2Full: sp2Name || 'TBD',
+            sp1Id: sp1Id, sp2Id: sp2Id,
+            sp1Confirmed: sp1Confirmed, sp2Confirmed: sp2Confirmed,
+            sp1: sp1Name ? lastName(sp1Name) : 'TBD',
+            sp2: sp2Name ? lastName(sp2Name) : 'TBD',
+            tm: gameTime,
+            tv: (g.broadcasts && g.broadcasts.length) ? g.broadcasts[0].name : 'MLB.TV',
+            site: (g.venue && g.venue.name) || '',
+            gamePk: g.gamePk,
+            status: g.status ? g.status.abstractGameState : 'Preview',
+            source: 'mlb-api'
+          });
         });
       });
 
-      // Populate liveScheduleGames with today
-      var days2=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-      var months2=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-      var n=new Date();
-      var todayStr2=days2[n.getDay()]+' '+months2[n.getMonth()]+' '+n.getDate();
-      liveScheduleGames = liveScheduleByDate[todayStr2] || [];
+      liveScheduleGames = liveScheduleByDate[todayStr] || [];
 
+      console.log('[SP] Schedule loaded via MLB API: ' + totalGames + ' games, today: ' + liveScheduleGames.length);
+      console.log('[SP] Starters — confirmed both: ' + confirmedBoth +
+                  ' | missing one: ' + missingOne + ' | missing both: ' + missingBoth);
+
+      if (spBanner) { spBanner.textContent = '⚡ Live schedule: MLB Stats API · ' + liveScheduleGames.length + ' games today'; spBanner.className = 'sp-banner live'; }
       if (callback) callback();
     })
-    .catch(function(e) {
-      console.warn('[Diamond Oracle] Schedule API error:', e);
-      liveScheduleGames = null;
+    .catch(function(err) {
+      // ── Diagnose the error type ──
+      var isCors   = err.message === 'Failed to fetch' || err.message.indexOf('NetworkError') >= 0;
+      var isHttp   = err.message.indexOf('HTTP') === 0;
+      var errType  = isCors ? 'CORS/Network blocked' : isHttp ? err.message : err.message;
+
+      console.warn('[SP] Schedule API failed (' + errType + ') — falling back to hand-coded SCHEDULE');
+
+      // ── FALLBACK: populate from hand-coded SCHEDULE array ──
+      // All starters marked unconfirmed (no IDs) — SP model adjustments disabled
+      liveScheduleGames  = [];
+      liveScheduleByDate = {};
+
+      SCHEDULE.forEach(function(g) {
+        if (!liveScheduleByDate[g.day]) liveScheduleByDate[g.day] = [];
+        liveScheduleByDate[g.day].push({
+          day: g.day, away: g.t1, home: g.t2,
+          t1: g.t1, t2: g.t2,
+          awayAbbr: '', homeAbbr: '',
+          sp1Full: g.sp1 || 'TBD', sp2Full: g.sp2 || 'TBD',
+          sp1Id: null, sp2Id: null,
+          sp1Confirmed: false, sp2Confirmed: false,  // ← no IDs = unconfirmed
+          sp1: g.sp1 || 'TBD', sp2: g.sp2 || 'TBD',
+          tm: g.tm || '', tv: g.tv || 'MLB.TV', site: g.site || '',
+          gamePk: null, status: 'Preview',
+          source: 'schedule-fallback'
+        });
+      });
+
+      liveScheduleGames = liveScheduleByDate[todayStr] || [];
+
+      console.log('[SP] Fallback schedule: ' + liveScheduleGames.length + ' games today (all SPs unconfirmed — SP model adjustments disabled)');
+
+      if (spBanner) {
+        spBanner.textContent = '⚠ Live data unavailable (' + errType + ') — using hand-coded schedule · SPs unconfirmed';
+        spBanner.className = 'sp-banner fallback';
+      }
+
       if (callback) callback();
     });
 }
@@ -1657,41 +1718,6 @@ function mlbDateToDayStr(isoDate) {
   return days[d.getDay()] + ' ' + months[d.getMonth()] + ' ' + d.getDate();
 }
 
-function fetchLiveSchedule(callback) {
-  var now = new Date();
-  var y = now.getFullYear();
-  var mo = String(now.getMonth()+1).padStart(2,'0');
-  var d = String(now.getDate()).padStart(2,'0');
-  var dateStr = y+'-'+mo+'-'+d;
-
-  fetch('https://statsapi.mlb.com/api/v1/schedule?sportId=1&date='+dateStr+
-        '&hydrate=probablePitcher(note)&fields=dates,date,games,gamePk,status,abstractGameState,teams,away,home,team,abbreviation,probablePitcher,fullName')
-    .then(function(r){ return r.json(); })
-    .then(function(data) {
-      liveScheduleGames = [];
-      if (data.dates && data.dates.length) {
-        data.dates[0].games.forEach(function(g) {
-          var awayAbbr = g.teams.away.team.abbreviation;
-          var homeAbbr = g.teams.home.team.abbreviation;
-          liveScheduleGames.push({
-            away: MLB_ABBREV_MAP[awayAbbr] || awayAbbr,
-            home: MLB_ABBREV_MAP[homeAbbr] || homeAbbr,
-            awayAbbr: awayAbbr,
-            homeAbbr: homeAbbr,
-            sp1: g.teams.away.probablePitcher ? g.teams.away.probablePitcher.fullName.split(' ').pop() : 'TBD',
-            sp2: g.teams.home.probablePitcher ? g.teams.home.probablePitcher.fullName.split(' ').pop() : 'TBD',
-            status: g.status.abstractGameState
-          });
-        });
-      }
-      if (callback) callback();
-    })
-    .catch(function() {
-      // If API fails, set to null so we fall back to SCHEDULE array
-      liveScheduleGames = null;
-      if (callback) callback();
-    });
-}
 
 // Check if a pick's game is actually scheduled today using live data
 function isGameScheduledToday(p) {
@@ -1787,11 +1813,10 @@ function finish(team, pitches1, pitches2, pitches3) {
     // Get last 5 games for this team
     var today = now.toISOString().split('T')[0];
     var d5 = new Date(now - 5*86400000).toISOString().split('T')[0];
-    var url = 'https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId='+tid+
+    var _bpEndpoint = '/api/v1/schedule?sportId=1&teamId='+tid+
               '&startDate='+d5+'&endDate='+today+'&hydrate=linescore(matchup,runners),decisions&fields=dates,date,games,gamePk,status,abstractGameState,teams,home,away,teamId';
 
-    fetch(url)
-      .then(function(r){ return r.json(); })
+    mlbFetch(_bpEndpoint)
       .then(function(data) {
         var gamePks = [];
         if (data.dates) {
@@ -1812,8 +1837,7 @@ function finish(team, pitches1, pitches2, pitches3) {
         // Fetch boxscores for each to get bullpen pitch counts
         var boxDone = 0, pitchesByDay = [0,0,0];
         recent.forEach(function(gm, gi) {
-          fetch('https://statsapi.mlb.com/api/v1/game/'+gm.pk+'/boxscore')
-            .then(function(r){ return r.json(); })
+          mlbFetch('/api/v1/game/'+gm.pk+'/boxscore')
             .then(function(box) {
               // Find which side is our team
               var side = null;
@@ -1951,120 +1975,131 @@ var pitcherStatsError  = false;
 // We match on last name to find entries in SP{}
 // Handles common disambiguation (two Garcias, etc.)
 var PITCHER_FULL_NAMES = {};  // populated on fetch: "Cole" -> "Gerrit Cole"
-
 function fetchAllPitcherStats(callback) {
-  // Collect pitcher IDs from live schedule (already fetched — no extra call)
-  var pitcherIds = {};  // id -> fullName
+  var pitcherIds = {};
   Object.keys(liveScheduleByDate).forEach(function(day) {
     (liveScheduleByDate[day] || []).forEach(function(game) {
-      if (game.sp1Id) pitcherIds[game.sp1Id] = game.sp1Full || game.sp1;
-      if (game.sp2Id) pitcherIds[game.sp2Id] = game.sp2Full || game.sp2;
+      if (game.sp1Id && game.sp1Full !== 'TBD')
+        pitcherIds[String(game.sp1Id)] = game.sp1Full;
+      if (game.sp2Id && game.sp2Full !== 'TBD')
+        pitcherIds[String(game.sp2Id)] = game.sp2Full;
     });
   });
 
-  var ids = Object.keys(pitcherIds).filter(function(id){ return id && id !== 'null'; });
+  var ids = Object.keys(pitcherIds);
+  console.log('[SP] Pitcher IDs to fetch: ' + ids.length);
 
   if (!ids.length) {
-    console.log('[Diamond Oracle] No pitcher IDs from schedule — skipping stat fetch');
+    console.warn('[SP] No pitcher IDs — pitcher model adjustments DISABLED for all games');
     pitcherStatsLoaded = true;
     if (callback) callback();
     return;
   }
 
-  // Single API call: fetch stats for all scheduled starters by player ID
-  // This endpoint is CORS-safe and is the same pattern as schedule fetch
-  var url = 'https://statsapi.mlb.com/api/v1/people' +
+  var _pitchEndpoint = '/api/v1/people' +
     '?personIds=' + ids.join(',') +
-    '&hydrate=stats(group=pitching,type=season,season=2026,gameType=R)' +
-    '&fields=people,id,fullName,stats,splits,stat,era,whip,strikeOuts,' +
-    'baseOnBalls,inningsPitched,homeRuns,groundOuts,airOuts,gamesStarted,battersFaced';
+    '&hydrate=stats(group=pitching,type=season,season=2026,gameType=R)';
 
-  fetch(url)
-    .then(function(r) { return r.json(); })
+  mlbFetch(_pitchEndpoint)
     .then(function(data) {
-      if (!data.people) { pitcherStatsLoaded = true; if (callback) callback(); return; }
+      if (!data.people) {
+        console.warn('[SP] No people returned from pitcher stats API');
+        pitcherStatsLoaded = true;
+        if (callback) callback();
+        return;
+      }
 
-      var loaded = 0;
+      var loadedById = 0;
       data.people.forEach(function(person) {
         var fullName = person.fullName || '';
         if (!fullName) return;
 
-        // Get last name (our SP dict key)
-        var parts    = fullName.trim().split(' ');
-        var lastName = parts[parts.length - 1];
-        if (['Jr.','Sr.','II','III','IV'].indexOf(lastName) >= 0 && parts.length > 2)
-          lastName = parts[parts.length - 2];
+        var parts = fullName.trim().split(' ');
+        var ln = parts[parts.length - 1];
+        if (['Jr.','Sr.','II','III','IV'].indexOf(ln) >= 0 && parts.length > 2)
+          ln = parts[parts.length - 2];
 
-        // Find 2026 season stats
         var seasonStats = null;
         if (person.stats) {
-          person.stats.forEach(function(statGroup) {
-            if (statGroup.splits && statGroup.splits.length) {
-              // Take cumulative (last entry or only entry)
-              seasonStats = statGroup.splits[statGroup.splits.length - 1].stat;
-            }
+          person.stats.forEach(function(sg) {
+            if (sg.splits && sg.splits.length)
+              seasonStats = sg.splits[sg.splits.length - 1].stat;
           });
         }
         if (!seasonStats) return;
 
-        var ip  = parseFloat(seasonStats.inningsPitched || '0');
-        var gs  = parseInt(seasonStats.gamesStarted    || 0);
-        if (gs < 1 || ip < 0.1) return;
-
-        var bf     = parseInt(seasonStats.battersFaced || 1);
-        var era    = parseFloat(seasonStats.era        || '0.00');
-        var whip   = parseFloat(seasonStats.whip       || '0.00');
-        var k      = parseInt(seasonStats.strikeOuts   || 0);
-        var bb     = parseInt(seasonStats.baseOnBalls  || 0);
-        var hr     = parseInt(seasonStats.homeRuns     || 0);
-        var go     = parseInt(seasonStats.groundOuts   || 0);
-        var ao     = parseInt(seasonStats.airOuts      || 0);
+        var ip = parseFloat(seasonStats.inningsPitched || '0');
+        var gs = parseInt(seasonStats.gamesStarted || 0);
+        var bf = parseInt(seasonStats.battersFaced  || 1) || 1;
+        var k  = parseInt(seasonStats.strikeOuts    || 0);
+        var bb = parseInt(seasonStats.baseOnBalls   || 0);
+        var hr = parseInt(seasonStats.homeRuns      || 0);
+        var go = parseInt(seasonStats.groundOuts    || 0);
+        var ao = parseInt(seasonStats.airOuts       || 0);
 
         var liveStats = {
-          gs: gs, ip: ip, era: era, whip: whip,
-          k9:     ip > 0 ? parseFloat((k  / ip * 9   ).toFixed(2)) : 0,
-          bb9:    ip > 0 ? parseFloat((bb / ip * 9   ).toFixed(2)) : 0,
-          hrPer9: ip > 0 ? parseFloat((hr / ip * 9   ).toFixed(2)) : 0,
-          gbPct:  (go+ao) > 0 ? parseFloat((go/(go+ao)*100).toFixed(1)) : 45.0,
-          kPct:   bf > 0 ? parseFloat((k  / bf * 100).toFixed(1)) : 0,
-          bbPct:  bf > 0 ? parseFloat((bb / bf * 100).toFixed(1)) : 0,
-          kBBPct: parseFloat(((bf>0?k/bf*100:0)-(bf>0?bb/bf*100:0)).toFixed(1)),
-          ipGs:   gs > 0 ? parseFloat((ip / gs).toFixed(1)) : 0
+          gs: gs, ip: ip,
+          era:    parseFloat(seasonStats.era  || '0.00'),
+          whip:   parseFloat(seasonStats.whip || '0.00'),
+          k9:     ip > 0 ? parseFloat((k  / ip * 9).toFixed(2)) : 0,
+          bb9:    ip > 0 ? parseFloat((bb / ip * 9).toFixed(2)) : 0,
+          hrPer9: ip > 0 ? parseFloat((hr / ip * 9).toFixed(2)) : 0,
+          gbPct:  (go+ao)>0 ? parseFloat((go/(go+ao)*100).toFixed(1)) : 45.0,
+          kPct:   bf>0 ? parseFloat((k /bf*100).toFixed(1)) : 0,
+          bbPct:  bf>0 ? parseFloat((bb/bf*100).toFixed(1)) : 0,
+          kBBPct: bf>0 ? parseFloat(((k-bb)/bf*100).toFixed(1)) : 0,
+          ipGs:   gs>0 ? parseFloat((ip/gs).toFixed(1)) : 0
         };
 
-        // Match to SP dict — last name first, then fuzzy scan
-        var proj = SP[lastName];
+        var proj = SP[ln];
         if (!proj) {
-          Object.keys(SP).forEach(function(spKey) {
-            if (!proj && fullName.toLowerCase().indexOf(spKey.toLowerCase()) >= 0)
-              proj = SP[spKey];
+          Object.keys(SP).forEach(function(k2) {
+            if (!proj && fullName.toLowerCase().indexOf(k2.toLowerCase()) >= 0)
+              proj = SP[k2];
           });
         }
 
         if (proj) {
-          liveSpData[lastName] = blendSP(lastName, liveStats, proj);
-          PITCHER_FULL_NAMES[lastName] = fullName;
-          loaded++;
+          var blended      = blendSP(ln, liveStats, proj);
+          blended.sourceTag  = 'live-id';
+          blended.fullName   = fullName;
+          blended.confirmed  = true;
+          liveSpData[ln]     = blended;
+          PITCHER_FULL_NAMES[ln] = fullName;
+        } else {
+          liveSpData[ln] = {
+            era: liveStats.era, xfip: parseFloat((liveStats.era*0.95).toFixed(2)),
+            k9: liveStats.k9, bb9: liveStats.bb9,
+            gbPct: liveStats.gbPct, kBBPct: liveStats.kBBPct,
+            ip: ip, gs: gs, hand: '?',
+            sourceTag: 'live-id-no-proj', fullName: fullName, confirmed: true,
+            note: fullName + ' — live stats, no preseason proj'
+          };
+          PITCHER_FULL_NAMES[ln] = fullName;
         }
+        loadedById++;
       });
 
       pitcherStatsLoaded = true;
-      console.log('[Diamond Oracle] Live pitcher stats: ' + loaded + ' of ' + ids.length + ' starters blended');
-
-      // Update Pitcher DB status
+      console.log('[SP] Pitcher stats loaded: ' + loadedById + ' of ' + ids.length + ' by MLB ID');
       var ps = document.getElementById('pdb-status');
-      if (ps) { ps.textContent = 'Live 2026 stats: ' + loaded + ' starters · Auto-updated'; ps.className = 'pdb-status ok'; }
+      if (ps) { ps.textContent = '⚡ Live 2026: '+loadedById+' pitchers via MLB ID'; ps.className='pdb-status ok'; }
       var pf = document.getElementById('pdb-fetched');
-      if (pf) pf.textContent = loaded;
-
+      if (pf) pf.textContent = loadedById;
       if (callback) callback();
     })
     .catch(function(e) {
-      console.warn('[Diamond Oracle] Pitcher stats fetch failed:', e);
+      console.warn('[SP] Pitcher stats fetch failed:', e.message);
       pitcherStatsError = true;
-      if (callback) callback();  // still render with baked/preseason data
+      pitcherStatsLoaded = true;
+      if (callback) callback();
     });
 }
+
+// Extract stats from MLB Stats API people[] response and blend with preseason
+// Returns count of pitchers successfully blended
+
+
 
 // Convenience: show data source badge on a pick
 function spDataBadge(spName) {
@@ -2110,6 +2145,28 @@ function getActiveSP(name) {
   if (liveSpData && liveSpData[name]) return liveSpData[name];
   return SP[name] || SP["Average SP"];
 }
+function spSourceLabel(spName) {
+  var sp = liveSpData[spName];
+  if (!sp) return SP[spName]
+    ? { label:'Preseason', color:'var(--mu)', confirmed:false }
+    : { label:'Unknown',   color:'var(--rd)', confirmed:false };
+  var tag = sp.sourceTag || '';
+  if (tag.indexOf('live-id') === 0) return { label:'MLB ✓', color:'var(--gn)', confirmed:true };
+  if (tag === 'baked')              return { label:'Baked',  color:'var(--gd)', confirmed:false };
+  return                                   { label:'Preseason', color:'var(--mu)', confirmed:false };
+}
+
+function isSpConfirmed(spName) {
+  var sp = liveSpData[spName];
+  return !!(sp && sp.confirmed);
+}
+
+function getActiveSPForModel(spName) {
+  var sp = liveSpData[spName] || SP[spName] || SP['Average SP'];
+  return { data:sp, confirmed:isSpConfirmed(spName), source:spSourceLabel(spName).label };
+}
+
+
 
 function firstStartDiscount(spName) {
   var sp = getActiveSP(spName);
@@ -2845,26 +2902,26 @@ function modelAgreement(p) {
   return 'neutral';
 }
 
-
 function computeAdjConf(p, base) {
   var adj = base;
-  // SP quality adjustments
-  adj += firstStartDiscount(p[2]);
-  adj += firstStartDiscount(p[3]);
-  adj += avgSpPenalty(p[2]);
-  adj += avgSpPenalty(p[3]);
-  adj += kBBBonus(p[2]) * 0.5;
-  adj += kBBBonus(p[3]) * 0.5;
-  adj += gbBonus(p[2]) * 0.3;
-  adj += gbBonus(p[3]) * 0.3;
-  // Run line threshold
+  var sp1Info = getActiveSPForModel(p[2]);
+  var sp2Info = getActiveSPForModel(p[3]);
+  // Only apply SP bonuses/penalties when starter is confirmed via MLB ID
+  var w1 = sp1Info.confirmed ? 1.0 : 0.0;
+  var w2 = sp2Info.confirmed ? 1.0 : 0.0;
+  adj += firstStartDiscount(p[2]) * w1;
+  adj += firstStartDiscount(p[3]) * w2;
+  adj += avgSpPenalty(p[2]) * w1;
+  adj += avgSpPenalty(p[3]) * w2;
+  adj += kBBBonus(p[2]) * 0.5 * w1;
+  adj += kBBBonus(p[3]) * 0.5 * w2;
+  adj += gbBonus(p[2]) * 0.3 * w1;
+  adj += gbBonus(p[3]) * 0.3 * w2;
   if (p[9] === 'RL') adj = rlThresholdCheck(p, adj);
   if (p[9] === 'ML' || p[9] === 'RL') adj += underdogValueAdj(p);
-  // UNDER bias — empirical edge in early season
   if (p[9] === 'UNDER') adj += 2;
-  // ── LIVE SIGNALS (auto-populated when fetched) ──
-  adj += bpFatigueAdj(p);   // bullpen fatigue: -5 to 0
-  adj += rlmAdj(p);          // reverse line movement: -4 to +4
+  adj += bpFatigueAdj(p);
+  adj += rlmAdj(p);
   return Math.max(50, Math.min(78, Math.round(adj)));
 }
 
@@ -3023,29 +3080,6 @@ function setupPills() {
   if (defaultDay) renderSchedDay(defaultDay);
 }
 
-function setupPills() {
-  var cont = document.getElementById('sched-pills');
-  if (!cont) return;
-  var now=new Date();
-  var days2=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-  var months2=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  var todayStr=days2[now.getDay()]+' '+months2[now.getMonth()]+' '+now.getDate();
-  var allDays=[];
-  SCHEDULE.forEach(function(g){if(allDays.indexOf(g.day)<0)allDays.push(g.day);});
-  // Sort using WEEKS order
-  var ordered=[];
-  WEEKS.forEach(function(w){w.days.forEach(function(d){if(allDays.indexOf(d)>=0&&ordered.indexOf(d)<0)ordered.push(d);});});
-  allDays.forEach(function(d){if(ordered.indexOf(d)<0)ordered.push(d);});
-  // Only show today + future
-  var todayIdx=ordered.indexOf(todayStr);
-  var futureDays=todayIdx>=0?ordered.slice(todayIdx):ordered;
-  var defaultDay=futureDays.length?futureDays[0]:ordered[ordered.length-1];
-  cont.innerHTML=futureDays.map(function(d){
-    var label=d===todayStr?'Today ('+d.replace(/\w+ /,'')+')':d.replace(/\w+ /,'');
-    return '<button class="rp'+(d===defaultDay?' on':'')+'" onclick="selectSchedDay(this,\''+d+'\')">'+label+'</button>';
-  }).join('');
-  if(defaultDay)renderSchedDay(defaultDay);
-}
 
 var _schedDay = null;
 
@@ -3059,9 +3093,6 @@ function renderSched() {
   setupPills();
 }
 
-function renderSched() {
-  setupPills();
-}
 
 function renderSchedDay(day) {
   _schedDay = day;
@@ -3158,42 +3189,6 @@ function renderSchedDay(day) {
   el.innerHTML = out;
 }
 
-function renderSchedDay(day) {
-  _schedDay = day;
-  var games = SCHEDULE.filter(function(g){ return g.day === day; });
-  var out = '<div class="sched-day"><div class="sched-day-hdr">'+day+'</div>';
-  games.forEach(function(g) {
-    var picks = PICKS.filter(function(p){return p[0]===g.t1&&p[1]===g.t2&&p[15]===g.day&&p[11]!=='SKIP';});
-    var best = picks.find(function(p){return p[11]==='★ BEST';});
-    var play = picks.find(function(p){return p[11]==='PLAY';});
-    var extraCls = best ? 'sched-best' : play ? 'sched-play' : '';
-    var tv = (g.tv||'').toLowerCase().replace(/[^a-z]/g,'');
-    var tvCls = tv === 'mlbtv' ? 'mlbtv' : tv === 'espn' ? 'espn' : tv === 'fox' ? 'fox' : tv === 'tbs' ? 'tbs' : tv === 'peacock' ? 'peacock' : tv === 'apple' ? 'apple' : '';
-    var tm = (g.tm||'').replace('p','').replace('a','');
-    var ampm = (g.tm||'').includes('p') ? 'PM ET' : 'AM ET';
-    out += '<div class="sched-game '+extraCls+'" onclick="this.classList.toggle(\'open\')">'+
-      '<div class="sched-row">'+
-      '<div><div class="sched-time">'+tm+'</div><div class="sched-time-ampm">'+ampm+'</div></div>'+
-      '<div class="sched-matchup">'+
-      '<div class="sched-teams">'+
-      '<span style="color:'+teamC1(g.t1)+'">'+teamAb(g.t1)+'</span>'+
-      '<span class="sched-vs">@</span>'+
-      '<span style="color:'+teamC1(g.t2)+'">'+teamAb(g.t2)+'</span>'+
-      '<span style="font-family:IBM Plex Mono,monospace;font-size:8px;color:var(--mu);">'+g.sp1+' vs '+g.sp2+'</span>'+
-      '</div>'+
-      '<div class="sched-meta"><span>'+g.site+'</span></div>'+
-      '</div>'+
-      '<div class="sched-right">'+
-      '<div class="sched-tv '+tvCls+'">'+g.tv+'</div>'+
-      (best ? '<div class="sched-pick-badge">★ BEST: '+best[8]+'</div>' : play ? '<div class="sched-pick-badge">PLAY: '+play[8]+'</div>' : '')+
-      '</div>'+
-      '</div>'+
-      '</div>';
-  });
-  out += '</div>';
-  var el = document.getElementById('sched-list');
-  if (el) el.innerHTML = out;
-}
 
 // ══════════ TODAY TAB ══════════
 function renderToday() {
@@ -3314,7 +3309,17 @@ function toMins(t){var m=(t||'').match(/(\d+):(\d+)([ap])/i);if(!m)return 999;va
       '<span class="pc-team-full">'+p[1]+'</span></div>'+
       '</div>'+
       '<div class="ps">'+
-      '<span class="psi sp">'+p[2]+' vs '+p[3]+'</span>'+
+      (function(){
+        var s1=spSourceLabel(p[2]),s2=spSourceLabel(p[3]);
+        var n1=(p[2]==='TBD')?'TBD ⚠':(s1.confirmed?'⚡':'')+p[2];
+        var n2=(p[3]==='TBD')?'TBD ⚠':(s2.confirmed?'⚡':'')+p[3];
+        var src=(s1.confirmed&&s2.confirmed)
+          ?'<span style="font-family:IBM Plex Mono,monospace;font-size:6px;color:var(--gn);margin-left:4px">MLB ✓</span>'
+          :'<span style="font-family:IBM Plex Mono,monospace;font-size:6px;color:var(--or);margin-left:4px">'+
+            ((!s1.confirmed&&!s2.confirmed)?'unconfirmed':'1 unconfirmed')+'</span>';
+        return '<span class="psi sp" style="color:'+(s1.confirmed&&s2.confirmed?'var(--tx)':'var(--or)')+'">'+
+          n1+' vs '+n2+'</span>'+src;
+      })()+
       (function(){
         var src1=spDataBadge(p[2]), src2=spDataBadge(p[3]);
         var badges='';
@@ -4012,12 +4017,11 @@ function fetchPitcherDB() {
   var done=0;
   pitchers.forEach(function(name){
     var query = name.replace(' ','%20');
-    fetch('https://statsapi.mlb.com/api/v1/people/search?names='+query+'&sportIds=1&fields=people,id,fullName,primaryPosition')
-    .then(function(r){return r.json();})
+    mlbFetch('/api/v1/people/search?names='+query+'&sportIds=1&fields=people,id,fullName,primaryPosition')
     .then(function(data){
       if (!data.people || !data.people.length) return;
       var pid = data.people[0].id;
-      return fetch('https://statsapi.mlb.com/api/v1/people/'+pid+'/stats?stats=season&season=2026&sportId=1&group=pitching');
+      return mlbFetch('/api/v1/people/'+pid+'/stats?stats=season&season=2026&sportId=1&group=pitching');
     })
     .then(function(r){return r&&r.json();})
     .then(function(data){
